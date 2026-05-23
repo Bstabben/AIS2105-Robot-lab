@@ -18,8 +18,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'device_id',
-            default_value='4',
-            description='USB camera device index',
+            default_value='/dev/v4l/by-id/auto',
+            description='Camera device path or index',
         ),
         DeclareLaunchArgument(
             'calibration_file',

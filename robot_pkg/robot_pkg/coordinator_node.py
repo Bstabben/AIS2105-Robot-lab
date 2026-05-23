@@ -15,15 +15,15 @@ class State(Enum):
     MOVING_HOME   = auto()
     MOVING_OVERVIEW = auto()
     WAITING_DETECT  = auto()
-    MOVING_RED    = auto()
-    MOVING_YELLOW = auto()
-    MOVING_BLUE   = auto()
+    MOVING_RED   = auto()
+    MOVING_GREEN = auto()
+    MOVING_BLUE  = auto()
     SEARCHING     = auto()
     ALERT         = auto()
     DONE          = auto()
 
 
-CUBE_COLORS = ('red', 'yellow', 'blue')
+CUBE_COLORS = ('red', 'green', 'blue')
 
 
 class CoordinatorNode(Node):
@@ -66,7 +66,7 @@ class CoordinatorNode(Node):
             'home':     self._make_client('robot/move_home',     cb),
             'overview': self._make_client('robot/move_overview',  cb),
             'red':      self._make_client('robot/move_to_red',    cb),
-            'yellow':   self._make_client('robot/move_to_yellow', cb),
+            'green':    self._make_client('robot/move_to_green',  cb),
             'blue':     self._make_client('robot/move_to_blue',   cb),
         }
         # Search clients — query how many exist by checking param or hardcode max
@@ -169,26 +169,26 @@ class CoordinatorNode(Node):
                     f'Timeout waiting for {missing} — starting search')
                 self._search_idx = 0
                 self._transition(State.SEARCHING)
-                self._call('overview')  # move back to overview before searching
+                self._call(f'search_{self._search_idx}')
 
         elif s == State.MOVING_RED:
             if self._pending_done():
                 if self._pending_ok():
-                    self._transition(State.MOVING_YELLOW)
-                    self._call('yellow')
+                    self._transition(State.MOVING_GREEN)
+                    self._call('green')
                 else:
                     self._missing_color = 'red'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
                     self._call(f'search_{self._search_idx}')
 
-        elif s == State.MOVING_YELLOW:
+        elif s == State.MOVING_GREEN:
             if self._pending_done():
                 if self._pending_ok():
                     self._transition(State.MOVING_BLUE)
                     self._call('blue')
                 else:
-                    self._missing_color = 'yellow'
+                    self._missing_color = 'green'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
                     self._call(f'search_{self._search_idx}')
@@ -210,8 +210,14 @@ class CoordinatorNode(Node):
                     self.get_logger().info(
                         f'Found {self._missing_color} at search position '
                         f'{self._search_idx}')
-                    self._transition(State.MOVING_RED)
-                    self._call('red')
+                    _resume = {
+                        'red':   (State.MOVING_RED,   'red'),
+                        'green': (State.MOVING_GREEN, 'green'),
+                        'blue':  (State.MOVING_BLUE,  'blue'),
+                    }
+                    next_state, color_key = _resume[self._missing_color]
+                    self._transition(next_state)
+                    self._call(color_key)
                 elif self._elapsed() > self._search_timeout:
                     self._search_idx += 1
                     max_search = sum(

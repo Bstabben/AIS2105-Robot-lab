@@ -35,13 +35,7 @@ def generate_launch_description():
             executable='camera_node',
             name='camera_node',
             output='screen',
-            parameters=[
-                config_file,
-                {
-                    'device_id': LaunchConfiguration('device_id'),
-                    'calibration_url': LaunchConfiguration('calibration_file'),
-                },
-            ],
+            parameters=[config_file],
         ),
 
         Node(

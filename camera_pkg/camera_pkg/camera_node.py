@@ -1,9 +1,25 @@
+import os
+import glob
 import yaml
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 import cv2
+
+INTEGRATED_KEYWORDS = ('integrated', 'chicony')
+
+
+def _find_usb_camera() -> str:
+    """Return the first /dev/v4l/by-id entry that is not the built-in camera."""
+    by_id = sorted(glob.glob('/dev/v4l/by-id/*video-index0'))
+    for path in by_id:
+        name = os.path.basename(path).lower()
+        if not any(kw in name for kw in INTEGRATED_KEYWORDS):
+            return path
+    raise RuntimeError(
+        'No external USB camera found in /dev/v4l/by-id/. '
+        'Check that the camera is plugged in.')
 
 
 def _load_camera_info(path: str) -> CameraInfo:
@@ -25,7 +41,7 @@ class CameraNode(Node):
     def __init__(self):
         super().__init__('camera_node')
 
-        self.declare_parameter('device_id', 0)
+        self.declare_parameter('device_id', 'auto')
         self.declare_parameter('frame_rate', 30.0)
         self.declare_parameter('frame_width', 640)
         self.declare_parameter('frame_height', 480)
@@ -35,6 +51,9 @@ class CameraNode(Node):
         self.declare_parameter('calibration_url', '')
 
         device_id = self.get_parameter('device_id').value
+        if device_id == 'auto':
+            device_id = _find_usb_camera()
+            self.get_logger().info(f'Auto-detected USB camera: {device_id}')
         frame_rate = self.get_parameter('frame_rate').value
         width = self.get_parameter('frame_width').value
         height = self.get_parameter('frame_height').value
@@ -60,13 +79,15 @@ class CameraNode(Node):
         self._pub_image = self.create_publisher(Image, 'camera/image_raw', 10)
         self._pub_info = self.create_publisher(CameraInfo, 'camera/camera_info', 10)
 
-        self._cap = cv2.VideoCapture(device_id)
+        self._cap = cv2.VideoCapture(device_id, cv2.CAP_V4L2)
         if not self._cap.isOpened():
             self.get_logger().error(f'Failed to open camera device {device_id}')
             raise RuntimeError(f'Cannot open camera device {device_id}')
 
+        self._cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
         self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         period = 1.0 / frame_rate
         self._timer = self.create_timer(period, self._timer_callback)

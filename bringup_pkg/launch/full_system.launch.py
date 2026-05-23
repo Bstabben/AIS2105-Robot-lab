@@ -6,11 +6,8 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    camera_launch = PathJoinSubstitution([
-        FindPackageShare('camera_pkg'), 'launch', 'camera.launch.py'
-    ])
-    detection_launch = PathJoinSubstitution([
-        FindPackageShare('detection_pkg'), 'launch', 'detection.launch.py'
+    vision_launch = PathJoinSubstitution([
+        FindPackageShare('detection_pkg'), 'launch', 'vision.launch.py'
     ])
     robot_launch = PathJoinSubstitution([
         FindPackageShare('robot_pkg'), 'launch', 'robot.launch.py'
@@ -19,8 +16,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'device_id',
-            default_value='4',
-            description='USB camera device index (e.g. 4 for /dev/video4)',
+            default_value='/dev/v4l/by-id/auto',
+            description='Camera device path or index',
         ),
         DeclareLaunchArgument(
             'calibration_file',
@@ -44,17 +41,11 @@ def generate_launch_description():
         ),
 
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(camera_launch),
+            PythonLaunchDescriptionSource(vision_launch),
             launch_arguments={
-                'device_id':        LaunchConfiguration('device_id'),
-                'calibration_file': LaunchConfiguration('calibration_file'),
-                'table_z':          LaunchConfiguration('table_z'),
-            }.items(),
-        ),
-
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(detection_launch),
-            launch_arguments={
+                'device_id':           LaunchConfiguration('device_id'),
+                'calibration_file':    LaunchConfiguration('calibration_file'),
+                'table_z':             LaunchConfiguration('table_z'),
                 'publish_debug_image': LaunchConfiguration('publish_debug_image'),
             }.items(),
         ),

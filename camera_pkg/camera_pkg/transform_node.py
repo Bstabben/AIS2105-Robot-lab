@@ -6,7 +6,7 @@ from geometry_msgs.msg import PointStamped
 import tf2_ros
 import tf2_geometry_msgs  # noqa: F401 — registers PointStamped transform support
 
-COLORS = ('red', 'yellow', 'blue')
+COLORS = ('red', 'green', 'blue')
 
 
 class TransformNode(Node):
@@ -108,7 +108,7 @@ class TransformNode(Node):
             tf = self._tf_buffer.lookup_transform(
                 self._base_frame,
                 self._camera_frame,
-                msg.header.stamp,
+                rclpy.time.Time(),
                 timeout=rclpy.duration.Duration(seconds=0.1),
             )
         except (tf2_ros.LookupException,

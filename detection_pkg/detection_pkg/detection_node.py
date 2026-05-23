@@ -12,10 +12,10 @@ import numpy as np
 # Each color entry: list of one or two [lower, upper] HSV bound pairs.
 # Red wraps around 180° in OpenCV HSV so it needs two ranges.
 DEFAULT_HSV = {
-    'red':    [([0,   120,  70], [10,  255, 255]),
-               ([170, 120,  70], [180, 255, 255])],
-    'yellow': [([20,  100,  100], [35, 255, 255])],
-    'blue':   [([100, 150,  50], [130, 255, 255])],
+    'red':   [([0,   120,  70], [10,  255, 255]),
+              ([170, 120,  70], [180, 255, 255])],
+    'green': [([35,  80,   50], [85,  255, 255])],
+    'blue':  [([100, 150,  50], [130, 255, 255])],
 }
 
 
@@ -108,7 +108,7 @@ class DetectionNode(Node):
 
                 if debug_frame is not None:
                     color_bgr = {'red': (0, 0, 255),
-                                 'yellow': (0, 255, 255),
+                                 'green': (0, 255, 0),
                                  'blue': (255, 0, 0)}[color]
                     cv2.rectangle(debug_frame, (x, y), (x + w, y + h), color_bgr, 2)
                     cv2.circle(debug_frame, (cx, cy), 5, color_bgr, -1)

@@ -3,19 +3,19 @@
 
 camera_node:
   ros__parameters:
-    device_id: 4          # /dev/video4 — USB webcam
+    device_id: auto
     frame_rate: 30.0
     frame_width: 640
     frame_height: 480
-    camera_frame: camera_link
+    camera_frame: tool0
     # Absolute path to calibration.yaml from cameracalibrator.
     # Pass via launch arg: calibration_file:=file:///path/to/calibration.yaml
-    calibration_url: ''
+    calibration_url: 'file:///home/richard/ros2_ws/src/ur_project/camera_pkg/config/calibration.yaml'
 
 # table_z: jog the TCP to the table surface and read the Z value in base_link.
 # camera_frame and base_frame must match the TF frames from ur_robot_driver.
 transform_node:
   ros__parameters:
-    table_z: 0.0
-    camera_frame: camera_link
+    table_z: 0.047
+    camera_frame: tool0
     base_frame: base_link
