@@ -87,3 +87,5 @@ Kaffi og øl, helgen blir søl
 ...............▐▒▒▒▒▒▒▒▒▌
 ................▐▒▒▒▒▒▒▒▌
 ..................▀▌▒▀▒▐▀ 
+
++rep. Project was nice and slow in the begining, but when I started getting comfortable with is ♥♥♥♥, It bacame ruthless and started pounding me real good. I loved every thrust of it¨s large ♥♥♥♥. 10/10 would do anal with it again. #FullHomo
