@@ -53,9 +53,6 @@ def generate_launch_description():
             executable='detection_node',
             name='detection_node',
             output='screen',
-            parameters=[
-                detection_config,
-                {'publish_debug_image': LaunchConfiguration('publish_debug_image')},
-            ],
+            parameters=[detection_config],
         ),
     ])

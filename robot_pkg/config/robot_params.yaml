@@ -4,7 +4,13 @@
 motion_node:
   ros__parameters:
     # Standard upright home: elbow straight, wrists neutral
-    home_joints: [0.0, -1.5708, 1.5708, -1.5708, -1.5708, 0.0]
+    home_joints: [1.1820958296405237,
+                  -1.590818544427389,
+                  0.4478757381439209,
+                  -1.1199367207339783,
+                  -1.5420225302325647,
+                  -0.31600696245302373]
+
 
     # Overview position: arm extended over the table, camera pointing down.
     # TUNE THIS before first run — jog the robot to the desired pose and read

@@ -33,7 +33,7 @@ class CoordinatorNode(Node):
     Start the sequence by calling the /robot/start service (std_srvs/Trigger).
 
     Sequence:
-        HOME → OVERVIEW → wait for detections → point RED → YELLOW → BLUE → DONE
+        HOME → OVERVIEW → wait for detections → point RED → GREEN → BLUE → DONE
 
     If a cube is not detected within detection_timeout seconds, the robot tries
     each search position in turn.  After all search positions are exhausted it
