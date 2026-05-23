@@ -7,7 +7,7 @@ camera_node:
     frame_rate: 30.0
     frame_width: 640
     frame_height: 480
-    camera_frame: tool0
+    camera_frame: camera_link
     # Absolute path to calibration.yaml from cameracalibrator.
     # Pass via launch arg: calibration_file:=file:///path/to/calibration.yaml
     calibration_url: 'file:///home/richard/ros2_ws/src/ur_project/camera_pkg/config/calibration.yaml'
@@ -17,5 +17,5 @@ camera_node:
 transform_node:
   ros__parameters:
     table_z: 0.047
-    camera_frame: tool0
+    camera_frame: camera_optical_link
     base_frame: base_link
