@@ -21,8 +21,8 @@ motion_node:
     #search_count: 3
 
     # NEW
-    search_joints_0: [-2.05, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan left
-    search_joints_1: [-1.45, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan right
+    search_joints_0: [-1.45, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan right
+    search_joints_1: [-2.05, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan left
     search_joints_2: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819] # back to centre
     search_count: 3
 

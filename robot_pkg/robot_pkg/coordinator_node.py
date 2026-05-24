@@ -8,6 +8,7 @@ from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
+from geometry_msgs.msg import PointStamped
 
 
 class State(Enum):
@@ -51,6 +52,7 @@ class CoordinatorNode(Node):
         self._state         = State.IDLE
         self._pending       = None        # current async service future
         self._detections    = {}          # latest vision/detections payload
+        self._has_3d        = {c: False for c in CUBE_COLORS}  # 3D position received
         self._wait_start    = 0.0         # time we entered current wait state
         self._search_idx    = 0           # which search position we're trying
         self._missing_color = ''          # cube that triggered search
@@ -59,6 +61,15 @@ class CoordinatorNode(Node):
 
         self._sub_detections = self.create_subscription(
             String, 'vision/detections', self._detections_cb, 10)
+
+        for color in CUBE_COLORS:
+            self.create_subscription(
+                PointStamped,
+                f'vision/{color}_position_3d',
+                lambda msg, c=color: self._on_3d_pos(msg, c),
+                10,
+                callback_group=cb,
+            )
 
         # Service clients for motion_node
         self._cli = {
@@ -106,6 +117,9 @@ class CoordinatorNode(Node):
     def _all_detected(self) -> bool:
         return all(self._detected(c) for c in CUBE_COLORS)
 
+    def _all_3d_ready(self) -> bool:
+        return all(self._has_3d[c] for c in CUBE_COLORS)
+
     def _start_timer(self):
         self._wait_start = time.monotonic()
 
@@ -113,6 +127,11 @@ class CoordinatorNode(Node):
         return time.monotonic() - self._wait_start
 
     # callbacks
+
+    def _on_3d_pos(self, msg: PointStamped, color: str):
+        if not self._has_3d[color]:
+            self.get_logger().info(f'3D position received for {color}')
+            self._has_3d[color] = True
 
     def _detections_cb(self, msg: String):
         try:
@@ -157,17 +176,22 @@ class CoordinatorNode(Node):
                 self._start_timer()
 
         elif s == State.WAITING_DETECT:
-            if self._all_detected():
+            if self._all_3d_ready():
                 self._transition(State.MOVING_RED)
                 self._call('red')
             elif self._elapsed() > self._detection_timeout:
-                missing = [c for c in CUBE_COLORS if not self._detected(c)]
-                self._missing_color = missing[0]
-                self.get_logger().warning(
-                    f'Timeout waiting for {", ".join(missing)} — starting search')
-                self._search_idx = 0
-                self._transition(State.SEARCHING)
-                self._call(f'search_{self._search_idx}')
+                missing = [c for c in CUBE_COLORS if not self._has_3d[c]]
+                if not missing:
+                    self._transition(State.MOVING_RED)
+                    self._call('red')
+                else:
+                    self._missing_color = missing[0]
+                    self.get_logger().warning(
+                        f'Timeout — no 3D position yet for {", ".join(missing)} — starting search')
+                    self._search_idx = 0
+                    self._transition(State.SEARCHING)
+                    self._start_timer()
+                    self._call(f'search_{self._search_idx}')
 
         elif s == State.MOVING_RED:
             if self._pending_done():
@@ -178,6 +202,7 @@ class CoordinatorNode(Node):
                     self._missing_color = 'red'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
+                    self._start_timer()
                     self._call(f'search_{self._search_idx}')
 
         elif s == State.MOVING_GREEN:
@@ -189,6 +214,7 @@ class CoordinatorNode(Node):
                     self._missing_color = 'green'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
+                    self._start_timer()
                     self._call(f'search_{self._search_idx}')
 
         elif s == State.MOVING_BLUE:
@@ -199,23 +225,18 @@ class CoordinatorNode(Node):
                     self._missing_color = 'blue'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
+                    self._start_timer()
                     self._call(f'search_{self._search_idx}')
 
         elif s == State.SEARCHING:
             if self._pending_done():
-                # Arrived at search position, wait for detection
-                if self._detected(self._missing_color):
+                # Arrived at search position — wait for 3D position to be published
+                if self._has_3d[self._missing_color]:
                     self.get_logger().info(
-                        f'Found {self._missing_color} at search position '
+                        f'Got 3D position for {self._missing_color} at search position '
                         f'{self._search_idx}')
-                    _resume = {
-                        'red':   (State.MOVING_RED,   'red'),
-                        'green': (State.MOVING_GREEN, 'green'),
-                        'blue':  (State.MOVING_BLUE,  'blue'),
-                    }
-                    next_state, color_key = _resume[self._missing_color]
-                    self._transition(next_state)
-                    self._call(color_key)
+                    self._transition(State.MOVING_RED)
+                    self._call('red')
                 elif self._elapsed() > self._search_timeout:
                     self._search_idx += 1
                     if self._search_idx >= self._search_count:
