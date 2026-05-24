@@ -19,28 +19,13 @@ def generate_launch_description():
 
     return LaunchDescription([
 
-        # ── Launch-argumenter ──────────────────────────────────────────────────
+        # ── Launch arguments ───────────────────────────────────────────────────
 
         DeclareLaunchArgument(
-            'device_id',
-            default_value='/dev/v4l/by-id/auto',
-            description='Camera device path or index',
-        ),
-        DeclareLaunchArgument(
-            'calibration_file',
-            default_value='',
-            description='URL to camera calibration file, e.g. file:///home/user/calibration.yaml',
-        ),
-        DeclareLaunchArgument(
             'table_z',
-            default_value='0.0',
+            default_value='0.047',
             description='Table surface Z in base_link frame (metres). '
                         'Measure by jogging TCP to table surface and reading Z.',
-        ),
-        DeclareLaunchArgument(
-            'publish_debug_image',
-            default_value='true',
-            description='Publish annotated debug image on vision/debug_image',
         ),
         DeclareLaunchArgument(
             'approach_height',
@@ -63,9 +48,9 @@ def generate_launch_description():
             description='Set true to run without a physical robot (simulation only)',
         ),
 
-        # ── UR-driver (publiserer /joint_states + starter robot_state_publisher)
-        # robot_state_publisher er inkludert i ur_control.launch.py og konverterer
-        # joint_states til TF: base_link → shoulder_link → ... → tool0
+        # ── UR driver — publishes /joint_states and starts robot_state_publisher.
+        # robot_state_publisher (inside ur_control.launch.py) converts joint states
+        # to the TF chain: base_link → shoulder_link → ... → tool0
         # ──────────────────────────────────────────────────────────────────────
 
         IncludeLaunchDescription(
@@ -77,9 +62,9 @@ def generate_launch_description():
             }.items(),
         ),
 
-        # ── Kamera-TF: tool0 → camera_link ────────────────────────────────────
-        # Disse verdiene (x, y, z) må måles fysisk — de beskriver hvor kameraet
-        # sitter relativt til tool0 på robotarmen.
+        # ── Camera TF: tool0 → camera_link ────────────────────────────────────
+        # x, y, z describe where the camera sits relative to tool0 on the arm.
+        # Measure physically and update these values before first run.
         # ──────────────────────────────────────────────────────────────────────
 
         Node(
@@ -87,9 +72,9 @@ def generate_launch_description():
             executable='static_transform_publisher',
             name='camera_link_tf',
             arguments=[
-                '--x',     '0.05',   # fremover fra tool0 (juster)
+                '--x',     '0.05',
                 '--y',     '0.0',
-                '--z',     '0.05',   # oppover fra tool0 (juster)
+                '--z',     '0.05',
                 '--roll',  '0.0',
                 '--pitch', '0.0',
                 '--yaw',   '0.0',
@@ -98,10 +83,10 @@ def generate_launch_description():
             ],
         ),
 
-        # ── Kamera-TF: camera_link → camera_optical_link ──────────────────────
-        # Fast rotasjon (-π/2, 0, -π/2) konverterer fra REP-103-konvensjon
-        # (x fremover) til optisk konvensjon (z fremover, x høyre, y ned).
-        # Pinhole-modellen i transform_node krever optisk konvensjon.
+        # ── Camera TF: camera_link → camera_optical_link ──────────────────────
+        # Fixed -π/2, 0, -π/2 rotation converts from REP-103 convention
+        # (x forward) to optical convention (z forward, x right, y down).
+        # The pinhole model in transform_node requires optical convention.
         # ──────────────────────────────────────────────────────────────────────
 
         Node(
@@ -118,19 +103,16 @@ def generate_launch_description():
             ],
         ),
 
-        # ── Visjon (kamera + deteksjon) ───────────────────────────────────────
+        # ── Vision (camera + detection) ───────────────────────────────────────
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(vision_launch),
             launch_arguments={
-                'device_id':           LaunchConfiguration('device_id'),
-                'calibration_file':    LaunchConfiguration('calibration_file'),
-                'table_z':             LaunchConfiguration('table_z'),
-                'publish_debug_image': LaunchConfiguration('publish_debug_image'),
+                'table_z': LaunchConfiguration('table_z'),
             }.items(),
         ),
 
-        # ── Robot (bevegelse + koordinator) ───────────────────────────────────
+        # ── Robot (motion + coordinator) ──────────────────────────────────────
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(robot_launch),

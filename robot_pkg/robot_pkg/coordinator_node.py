@@ -45,9 +45,11 @@ class CoordinatorNode(Node):
 
         self.declare_parameter('detection_timeout', 5.0)
         self.declare_parameter('search_timeout',    4.0)
+        self.declare_parameter('search_count',      3)
 
         self._detection_timeout = self.get_parameter('detection_timeout').value
         self._search_timeout    = self.get_parameter('search_timeout').value
+        self._search_count      = self.get_parameter('search_count').value
 
         self._state         = State.IDLE
         self._pending       = None        # current async service future
@@ -69,8 +71,7 @@ class CoordinatorNode(Node):
             'green':    self._make_client('robot/move_to_green',  cb),
             'blue':     self._make_client('robot/move_to_blue',   cb),
         }
-        # Search clients — query how many exist by checking param or hardcode max
-        for i in range(10):
+        for i in range(self._search_count):
             self._cli[f'search_{i}'] = self._make_client(
                 f'robot/move_to_search_{i}', cb)
 
@@ -220,9 +221,7 @@ class CoordinatorNode(Node):
                     self._call(color_key)
                 elif self._elapsed() > self._search_timeout:
                     self._search_idx += 1
-                    max_search = sum(
-                        1 for k in self._cli if k.startswith('search_'))
-                    if self._search_idx >= max_search:
+                    if self._search_idx >= self._search_count:
                         self._transition(State.ALERT)
                     else:
                         self.get_logger().info(

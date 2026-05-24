@@ -114,7 +114,8 @@ class MotionNode(Node):
             self._current_joints = msg
 
     def _position_cb(self, msg: PointStamped, color: str):
-        self._cube_pos[color] = msg
+        with self._joints_lock:
+            self._cube_pos[color] = msg
 
     # ── motion helpers ────────────────────────────────────────────────────────
 
@@ -198,6 +199,9 @@ class MotionNode(Node):
                 req.ik_request.robot_state.joint_state = self._current_joints
 
         ik_result = _wait_for_future(self._ik_client.call_async(req))
+        if ik_result is None:
+            self.get_logger().error('IK service timed out (15 s)')
+            return False
         if ik_result.error_code.val != 1:
             self.get_logger().error(f'IK failed: error_code={ik_result.error_code.val}')
             return False
@@ -211,7 +215,8 @@ class MotionNode(Node):
         return self._execute_joints(joints)
 
     def _approach_cube(self, color: str, res: Trigger.Response) -> Trigger.Response:
-        pos = self._cube_pos[color]
+        with self._joints_lock:
+            pos = self._cube_pos[color]
         if pos is None:
             res.success = False
             res.message = f'No 3D position for {color}'

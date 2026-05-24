@@ -45,7 +45,7 @@ class DetectionNode(Node):
         self._bridge = CvBridge()
 
         self._sub = self.create_subscription(
-            Image, 'camera/image_raw', self._image_callback, 10)
+            Image, 'camera/image_raw', self._image_callback, 1)
         self._pub_detections = self.create_publisher(String, 'vision/detections', 10)
 
         # Per-color position publishers (pixel coords, z=0)
