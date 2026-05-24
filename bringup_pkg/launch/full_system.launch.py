@@ -13,9 +13,6 @@ def generate_launch_description():
     robot_launch = PathJoinSubstitution([
         FindPackageShare('robot_pkg'), 'launch', 'robot.launch.py'
     ])
-    ur_launch = PathJoinSubstitution([
-        FindPackageShare('ur_robot_driver'), 'launch', 'ur_control.launch.py'
-    ])
 
     return LaunchDescription([
 
@@ -33,21 +30,6 @@ def generate_launch_description():
             description='Distance above cube surface to stop at (metres)',
         ),
         DeclareLaunchArgument(
-            'ur_type',
-            default_value='ur5e',
-            description='UR robot model (ur3, ur3e, ur5, ur5e, ur10, ur10e, ur16e)',
-        ),
-        DeclareLaunchArgument(
-            'robot_ip',
-            default_value='192.168.1.102',
-            description='IP address of the UR controller',
-        ),
-        DeclareLaunchArgument(
-            'use_fake_hardware',
-            default_value='false',
-            description='Set true to run without a physical robot (simulation only)',
-        ),
-        DeclareLaunchArgument(
             'camera_x',
             default_value='0.05',
             description='Camera offset from tool0 along X in metres — measure physically and tune',
@@ -61,19 +43,6 @@ def generate_launch_description():
             'camera_z',
             default_value='0.05',
             description='Camera offset from tool0 along Z in metres — measure physically and tune',
-        ),
-
-        #UR driverpublishes /joint_states and starts robot_state_publisher.
-        # robot_state_publisher converts joint states
-        # to the TF chain: base_link to  (...) to tool0
-
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(ur_launch),
-            launch_arguments={
-                'ur_type':           LaunchConfiguration('ur_type'),
-                'robot_ip':          LaunchConfiguration('robot_ip'),
-                'use_fake_hardware': LaunchConfiguration('use_fake_hardware'),
-            }.items(),
         ),
 
         # Camera TF: tool0 → camera_link
@@ -98,15 +67,17 @@ def generate_launch_description():
 
         # Camera TF: camera_link → camera_optical_link
 
+        # camera_optical_link = camera_link orientation (identity rotation).
+        # Tool0 Z points straight down toward the table, so Z_optical = Z_tool0 = down.
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             name='camera_optical_tf',
             arguments=[
                 '--x', '0', '--y', '0', '--z', '0',
-                '--roll',  '-1.5708',
+                '--roll',  '0.0',
                 '--pitch', '0.0',
-                '--yaw',   '-1.5708',
+                '--yaw',   '0.0',
                 '--frame-id',       'camera_link',
                 '--child-frame-id', 'camera_optical_link',
             ],
