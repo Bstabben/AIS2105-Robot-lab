@@ -1,7 +1,7 @@
 import json
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import String
 from geometry_msgs.msg import PointStamped
 from cv_bridge import CvBridge
@@ -12,8 +12,8 @@ import numpy as np
 # Each color entry: list of one or two [lower, upper] HSV bound pairs.
 # Red wraps around 180° in OpenCV HSV so it needs two ranges.
 DEFAULT_HSV = {
-    'red':   [([0,   120,  70], [10,  255, 255]),
-              ([170, 120,  70], [180, 255, 255])],
+    'red':   [([0,   60,  40], [10,  255, 255]),
+              ([170, 60,  40], [180, 255, 255])],
     'green': [([35,  80,   50], [85,  255, 255])],
     'blue':  [([100, 150,  50], [130, 255, 255])],
 }
@@ -42,8 +42,13 @@ class DetectionNode(Node):
         self._min_area = self.get_parameter('min_contour_area').value
         self._publish_debug = self.get_parameter('publish_debug_image').value
 
+        self._K: np.ndarray | None = None
+        self._D: np.ndarray | None = None
+
         self._bridge = CvBridge()
 
+        self._sub_info = self.create_subscription(
+            CameraInfo, 'camera/camera_info', self._camera_info_cb, 1)
         self._sub = self.create_subscription(
             Image, 'camera/image_raw', self._image_callback, 1)
         self._pub_detections = self.create_publisher(String, 'vision/detections', 10)
@@ -58,6 +63,13 @@ class DetectionNode(Node):
 
         self.get_logger().info('Detection node started')
 
+    def _camera_info_cb(self, msg: CameraInfo):
+        if self._K is not None or msg.k[0] == 0.0:
+            return
+        self._K = np.array(msg.k, dtype=np.float64).reshape(3, 3)
+        self._D = np.array(msg.d, dtype=np.float64)
+        self.get_logger().info('Camera intrinsics loaded for undistortion')
+
     def _image_callback(self, msg: Image):
         try:
             self._process(msg)
@@ -66,6 +78,8 @@ class DetectionNode(Node):
 
     def _process(self, msg: Image):
         frame = self._bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        if self._K is not None and self._D is not None:
+            frame = cv2.undistort(frame, self._K, self._D)
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         blurred = cv2.GaussianBlur(hsv, (5, 5), 0)
 
