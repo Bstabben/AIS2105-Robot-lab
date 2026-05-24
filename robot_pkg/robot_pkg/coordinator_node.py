@@ -15,25 +15,22 @@ class State(Enum):
     MOVING_HOME   = auto()
     MOVING_OVERVIEW = auto()
     WAITING_DETECT  = auto()
-    MOVING_RED    = auto()
-    MOVING_YELLOW = auto()
-    MOVING_BLUE   = auto()
+    MOVING_RED   = auto()
+    MOVING_GREEN = auto()
+    MOVING_BLUE  = auto()
     SEARCHING     = auto()
     ALERT         = auto()
     DONE          = auto()
 
 
-CUBE_COLORS = ('red', 'yellow', 'blue')
+CUBE_COLORS = ('red', 'green', 'blue')
 
 
 class CoordinatorNode(Node):
     """
     State machine that orchestrates the full cube-pointing task.
 
-    Start the sequence by calling the /robot/start service (std_srvs/Trigger).
-
-    Sequence:
-        HOME → OVERVIEW → wait for detections → point RED → YELLOW → BLUE → DONE
+    The sequence starts by calling the /robot/start service (std_srvs/Trigger).
 
     If a cube is not detected within detection_timeout seconds, the robot tries
     each search position in turn.  After all search positions are exhausted it
@@ -45,9 +42,11 @@ class CoordinatorNode(Node):
 
         self.declare_parameter('detection_timeout', 5.0)
         self.declare_parameter('search_timeout',    4.0)
+        self.declare_parameter('search_count',      3)
 
         self._detection_timeout = self.get_parameter('detection_timeout').value
         self._search_timeout    = self.get_parameter('search_timeout').value
+        self._search_count      = self.get_parameter('search_count').value
 
         self._state         = State.IDLE
         self._pending       = None        # current async service future
@@ -66,11 +65,10 @@ class CoordinatorNode(Node):
             'home':     self._make_client('robot/move_home',     cb),
             'overview': self._make_client('robot/move_overview',  cb),
             'red':      self._make_client('robot/move_to_red',    cb),
-            'yellow':   self._make_client('robot/move_to_yellow', cb),
+            'green':    self._make_client('robot/move_to_green',  cb),
             'blue':     self._make_client('robot/move_to_blue',   cb),
         }
-        # Search clients — query how many exist by checking param or hardcode max
-        for i in range(10):
+        for i in range(self._search_count):
             self._cli[f'search_{i}'] = self._make_client(
                 f'robot/move_to_search_{i}', cb)
 
@@ -78,12 +76,12 @@ class CoordinatorNode(Node):
         self.create_service(
             Trigger, 'robot/start', self._start_cb, callback_group=cb)
 
-        # State machine timer — ticks at 10 Hz
+        # State machine timer (ticks at 10 Hz)
         self._timer = self.create_timer(0.1, self._tick, callback_group=cb)
 
         self.get_logger().info('Coordinator ready — call /robot/start to begin')
 
-    # ── helpers ───────────────────────────────────────────────────────────────
+    # helpers
 
     def _make_client(self, name: str, cb_group):
         client = self.create_client(Trigger, name, callback_group=cb_group)
@@ -114,7 +112,7 @@ class CoordinatorNode(Node):
     def _elapsed(self) -> float:
         return time.monotonic() - self._wait_start
 
-    # ── callbacks ─────────────────────────────────────────────────────────────
+    # callbacks
 
     def _detections_cb(self, msg: String):
         try:
@@ -135,7 +133,7 @@ class CoordinatorNode(Node):
         res.message = 'Started'
         return res
 
-    # ── state machine ─────────────────────────────────────────────────────────
+    # state machine
 
     def _transition(self, new_state: State):
         self.get_logger().info(f'{self._state.name} → {new_state.name}')
@@ -169,26 +167,26 @@ class CoordinatorNode(Node):
                     f'Timeout waiting for {missing} — starting search')
                 self._search_idx = 0
                 self._transition(State.SEARCHING)
-                self._call('overview')  # move back to overview before searching
+                self._call(f'search_{self._search_idx}')
 
         elif s == State.MOVING_RED:
             if self._pending_done():
                 if self._pending_ok():
-                    self._transition(State.MOVING_YELLOW)
-                    self._call('yellow')
+                    self._transition(State.MOVING_GREEN)
+                    self._call('green')
                 else:
                     self._missing_color = 'red'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
                     self._call(f'search_{self._search_idx}')
 
-        elif s == State.MOVING_YELLOW:
+        elif s == State.MOVING_GREEN:
             if self._pending_done():
                 if self._pending_ok():
                     self._transition(State.MOVING_BLUE)
                     self._call('blue')
                 else:
-                    self._missing_color = 'yellow'
+                    self._missing_color = 'green'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
                     self._call(f'search_{self._search_idx}')
@@ -205,18 +203,22 @@ class CoordinatorNode(Node):
 
         elif s == State.SEARCHING:
             if self._pending_done():
-                # Arrived at search position — wait for detection
+                # Arrived at search position, wait for detection
                 if self._detected(self._missing_color):
                     self.get_logger().info(
                         f'Found {self._missing_color} at search position '
                         f'{self._search_idx}')
-                    self._transition(State.MOVING_RED)
-                    self._call('red')
+                    _resume = {
+                        'red':   (State.MOVING_RED,   'red'),
+                        'green': (State.MOVING_GREEN, 'green'),
+                        'blue':  (State.MOVING_BLUE,  'blue'),
+                    }
+                    next_state, color_key = _resume[self._missing_color]
+                    self._transition(next_state)
+                    self._call(color_key)
                 elif self._elapsed() > self._search_timeout:
                     self._search_idx += 1
-                    max_search = sum(
-                        1 for k in self._cli if k.startswith('search_'))
-                    if self._search_idx >= max_search:
+                    if self._search_idx >= self._search_count:
                         self._transition(State.ALERT)
                     else:
                         self.get_logger().info(

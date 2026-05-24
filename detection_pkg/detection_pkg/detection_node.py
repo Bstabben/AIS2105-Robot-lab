@@ -12,10 +12,10 @@ import numpy as np
 # Each color entry: list of one or two [lower, upper] HSV bound pairs.
 # Red wraps around 180° in OpenCV HSV so it needs two ranges.
 DEFAULT_HSV = {
-    'red':    [([0,   120,  70], [10,  255, 255]),
-               ([170, 120,  70], [180, 255, 255])],
-    'yellow': [([20,  100,  100], [35, 255, 255])],
-    'blue':   [([100, 150,  50], [130, 255, 255])],
+    'red':   [([0,   120,  70], [10,  255, 255]),
+              ([170, 120,  70], [180, 255, 255])],
+    'green': [([35,  80,   50], [85,  255, 255])],
+    'blue':  [([100, 150,  50], [130, 255, 255])],
 }
 
 
@@ -23,7 +23,7 @@ class DetectionNode(Node):
     def __init__(self):
         super().__init__('detection_node')
 
-        # --- HSV parameters (declared per color/bound so they are tunable) ---
+        # HSV parameters (declared per color/bound so they are tunable)
         self._hsv = {}
         for color, ranges in DEFAULT_HSV.items():
             bounds = []
@@ -45,7 +45,7 @@ class DetectionNode(Node):
         self._bridge = CvBridge()
 
         self._sub = self.create_subscription(
-            Image, 'camera/image_raw', self._image_callback, 10)
+            Image, 'camera/image_raw', self._image_callback, 1)
         self._pub_detections = self.create_publisher(String, 'vision/detections', 10)
 
         # Per-color position publishers (pixel coords, z=0)
@@ -54,18 +54,23 @@ class DetectionNode(Node):
             for color in DEFAULT_HSV
         }
 
-        if self._publish_debug:
-            self._pub_debug = self.create_publisher(Image, 'vision/debug_image', 10)
+        self._pub_debug = self.create_publisher(Image, 'vision/debug_image', 10)
 
         self.get_logger().info('Detection node started')
 
     def _image_callback(self, msg: Image):
+        try:
+            self._process(msg)
+        except Exception as e:
+            self.get_logger().error(f'Detection callback error: {e}', throttle_duration_sec=2.0)
+
+    def _process(self, msg: Image):
         frame = self._bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         blurred = cv2.GaussianBlur(hsv, (5, 5), 0)
 
         detections = {}
-        debug_frame = frame.copy() if self._publish_debug else None
+        debug_frame = frame.copy()
 
         for color, ranges in self._hsv.items():
             mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
@@ -106,9 +111,9 @@ class DetectionNode(Node):
                 pt.point.z = 0.0
                 self._pub_position[color].publish(pt)
 
-                if debug_frame is not None:
+                if self._publish_debug:
                     color_bgr = {'red': (0, 0, 255),
-                                 'yellow': (0, 255, 255),
+                                 'green': (0, 255, 0),
                                  'blue': (255, 0, 0)}[color]
                     cv2.rectangle(debug_frame, (x, y), (x + w, y + h), color_bgr, 2)
                     cv2.circle(debug_frame, (cx, cy), 5, color_bgr, -1)
@@ -126,10 +131,9 @@ class DetectionNode(Node):
         out_msg.data = json.dumps(payload)
         self._pub_detections.publish(out_msg)
 
-        if self._publish_debug and debug_frame is not None:
-            debug_msg = self._bridge.cv2_to_imgmsg(debug_frame, encoding='bgr8')
-            debug_msg.header = msg.header
-            self._pub_debug.publish(debug_msg)
+        debug_msg = self._bridge.cv2_to_imgmsg(debug_frame, encoding='bgr8')
+        debug_msg.header = msg.header
+        self._pub_debug.publish(debug_msg)
 
 
 def main(args=None):

@@ -17,33 +17,16 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument(
-            'device_id',
-            default_value='4',
-            description='USB camera device index',
-        ),
-        DeclareLaunchArgument(
-            'calibration_file',
-            default_value='',
-            description='URL to camera calibration file',
-        ),
-        DeclareLaunchArgument(
             'table_z',
-            default_value='0.0',
+            default_value='0.047',
             description='Table surface Z in base_link frame (metres)',
-        ),
-        DeclareLaunchArgument(
-            'publish_debug_image',
-            default_value='true',
-            description='Publish annotated debug image on vision/debug_image',
         ),
 
         # Camera hardware interface + coordinate transform
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(camera_launch),
             launch_arguments={
-                'device_id':        LaunchConfiguration('device_id'),
-                'calibration_file': LaunchConfiguration('calibration_file'),
-                'table_z':          LaunchConfiguration('table_z'),
+                'table_z': LaunchConfiguration('table_z'),
             }.items(),
         ),
 
@@ -53,9 +36,6 @@ def generate_launch_description():
             executable='detection_node',
             name='detection_node',
             output='screen',
-            parameters=[
-                detection_config,
-                {'publish_debug_image': LaunchConfiguration('publish_debug_image')},
-            ],
+            parameters=[detection_config],
         ),
     ])
