@@ -16,7 +16,7 @@ class TransformNode(Node):
     Intrinsics are read from camera/camera_info (published by camera_node)
 
     For each colour the node:
-      1. Receives a PointStamped in camera_link frame (x=col, y=row, z=0).
+      1. Receives a PointStamped in camera_optical_link frame (x=col, y=row, z=0).
       2. Builds a unit ray through the pinhole camera model using live CameraInfo.
       3. Looks up the live TF from camera_link to base_link.
       4. Intersects the ray with the table plane (z = table_z in base_link).

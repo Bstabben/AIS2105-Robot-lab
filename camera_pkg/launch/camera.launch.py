@@ -12,19 +12,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument(
-            'device_id',
-            default_value='4',
-            description='USB camera device index (e.g. 4 for /dev/video4)',
-        ),
-        DeclareLaunchArgument(
-            'calibration_file',
-            default_value='',
-            description=(
-                'URL to camera calibration file, e.g. '
-                'file:///home/user/calibration.yaml'
-            ),
-        ),
-        DeclareLaunchArgument(
             'table_z',
             default_value='0.0',
             description='Table surface Z in base_link frame (metres)',

@@ -163,8 +163,8 @@ class CoordinatorNode(Node):
             elif self._elapsed() > self._detection_timeout:
                 missing = [c for c in CUBE_COLORS if not self._detected(c)]
                 self._missing_color = missing[0]
-                self.get_logger().warn(
-                    f'Timeout waiting for {missing} — starting search')
+                self.get_logger().warning(
+                    f'Timeout waiting for {", ".join(missing)} — starting search')
                 self._search_idx = 0
                 self._transition(State.SEARCHING)
                 self._call(f'search_{self._search_idx}')
@@ -225,9 +225,6 @@ class CoordinatorNode(Node):
                             f'Trying search position {self._search_idx}')
                         self._start_timer()
                         self._call(f'search_{self._search_idx}')
-                elif self._pending is None or self._pending.done():
-                    # Re-arm timer after arriving
-                    self._start_timer()
 
         elif s == State.ALERT:
             self.get_logger().error(

@@ -47,6 +47,21 @@ def generate_launch_description():
             default_value='false',
             description='Set true to run without a physical robot (simulation only)',
         ),
+        DeclareLaunchArgument(
+            'camera_x',
+            default_value='0.05',
+            description='Camera offset from tool0 along X in metres — measure physically and tune',
+        ),
+        DeclareLaunchArgument(
+            'camera_y',
+            default_value='0.0',
+            description='Camera offset from tool0 along Y in metres',
+        ),
+        DeclareLaunchArgument(
+            'camera_z',
+            default_value='0.05',
+            description='Camera offset from tool0 along Z in metres — measure physically and tune',
+        ),
 
         #UR driverpublishes /joint_states and starts robot_state_publisher.
         # robot_state_publisher converts joint states
@@ -70,9 +85,9 @@ def generate_launch_description():
             executable='static_transform_publisher',
             name='camera_link_tf',
             arguments=[
-                '--x',     '0.05',
-                '--y',     '0.0',
-                '--z',     '0.05',
+                '--x',     LaunchConfiguration('camera_x'),
+                '--y',     LaunchConfiguration('camera_y'),
+                '--z',     LaunchConfiguration('camera_z'),
                 '--roll',  '0.0',
                 '--pitch', '0.0',
                 '--yaw',   '0.0',

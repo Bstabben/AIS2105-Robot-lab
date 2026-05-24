@@ -220,7 +220,7 @@ class MotionNode(Node):
         if pos is None:
             res.success = False
             res.message = f'No 3D position for {color}'
-            self.get_logger().warn(res.message)
+            self.get_logger().warning(res.message)
             return res
         x, y, z = pos.point.x, pos.point.y, pos.point.z + self._approach_height
         self.get_logger().info(f'Approaching {color} at ({x:.3f}, {y:.3f}, {z:.3f})')
