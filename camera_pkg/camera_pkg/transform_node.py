@@ -106,7 +106,7 @@ class TransformNode(Node):
             tf = self._tf_buffer.lookup_transform(
                 self._base_frame,
                 self._camera_frame,
-                rclpy.time.Time(),
+                msg.header.stamp,
                 timeout=rclpy.duration.Duration(seconds=0.1),
             )
         except (tf2_ros.LookupException,

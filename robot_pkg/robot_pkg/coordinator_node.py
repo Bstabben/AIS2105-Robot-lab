@@ -16,10 +16,12 @@ class State(Enum):
     MOVING_HOME   = auto()
     MOVING_OVERVIEW = auto()
     WAITING_DETECT  = auto()
-    MOVING_RED   = auto()
-    MOVING_GREEN = auto()
-    MOVING_BLUE  = auto()
-    SEARCHING     = auto()
+    MOVING_RED         = auto()
+    HOMING_AFTER_RED   = auto()
+    MOVING_GREEN       = auto()
+    HOMING_AFTER_GREEN = auto()
+    MOVING_BLUE        = auto()
+    SEARCHING          = auto()
     ALERT         = auto()
     DONE          = auto()
 
@@ -196,8 +198,8 @@ class CoordinatorNode(Node):
         elif s == State.MOVING_RED:
             if self._pending_done():
                 if self._pending_ok():
-                    self._transition(State.MOVING_GREEN)
-                    self._call('green')
+                    self._transition(State.HOMING_AFTER_RED)
+                    self._call('home')
                 else:
                     self._missing_color = 'red'
                     self._search_idx = 0
@@ -205,17 +207,27 @@ class CoordinatorNode(Node):
                     self._start_timer()
                     self._call(f'search_{self._search_idx}')
 
+        elif s == State.HOMING_AFTER_RED:
+            if self._pending_done():
+                self._transition(State.MOVING_GREEN)
+                self._call('green')
+
         elif s == State.MOVING_GREEN:
             if self._pending_done():
                 if self._pending_ok():
-                    self._transition(State.MOVING_BLUE)
-                    self._call('blue')
+                    self._transition(State.HOMING_AFTER_GREEN)
+                    self._call('home')
                 else:
                     self._missing_color = 'green'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
                     self._start_timer()
                     self._call(f'search_{self._search_idx}')
+
+        elif s == State.HOMING_AFTER_GREEN:
+            if self._pending_done():
+                self._transition(State.MOVING_BLUE)
+                self._call('blue')
 
         elif s == State.MOVING_BLUE:
             if self._pending_done():
