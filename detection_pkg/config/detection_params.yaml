@@ -6,7 +6,7 @@
 
 detection_node:
   ros__parameters:
-    min_contour_area: 500        # px² — smaller blobs are ignored
+    min_contour_area: 500        # px², smaller blobs are ignored
     publish_debug_image: true    # publish annotated image on vision/debug_image
 
     hsv:

@@ -30,10 +30,7 @@ class CoordinatorNode(Node):
     """
     State machine that orchestrates the full cube-pointing task.
 
-    Start the sequence by calling the /robot/start service (std_srvs/Trigger).
-
-    Sequence:
-        HOME → OVERVIEW → wait for detections → point RED → GREEN → BLUE → DONE
+    The sequence starts by calling the /robot/start service (std_srvs/Trigger).
 
     If a cube is not detected within detection_timeout seconds, the robot tries
     each search position in turn.  After all search positions are exhausted it
@@ -79,12 +76,12 @@ class CoordinatorNode(Node):
         self.create_service(
             Trigger, 'robot/start', self._start_cb, callback_group=cb)
 
-        # State machine timer — ticks at 10 Hz
+        # State machine timer (ticks at 10 Hz)
         self._timer = self.create_timer(0.1, self._tick, callback_group=cb)
 
         self.get_logger().info('Coordinator ready — call /robot/start to begin')
 
-    # ── helpers ───────────────────────────────────────────────────────────────
+    # helpers
 
     def _make_client(self, name: str, cb_group):
         client = self.create_client(Trigger, name, callback_group=cb_group)
@@ -115,7 +112,7 @@ class CoordinatorNode(Node):
     def _elapsed(self) -> float:
         return time.monotonic() - self._wait_start
 
-    # ── callbacks ─────────────────────────────────────────────────────────────
+    # callbacks
 
     def _detections_cb(self, msg: String):
         try:
@@ -136,7 +133,7 @@ class CoordinatorNode(Node):
         res.message = 'Started'
         return res
 
-    # ── state machine ─────────────────────────────────────────────────────────
+    # state machine
 
     def _transition(self, new_state: State):
         self.get_logger().info(f'{self._state.name} → {new_state.name}')
@@ -206,7 +203,7 @@ class CoordinatorNode(Node):
 
         elif s == State.SEARCHING:
             if self._pending_done():
-                # Arrived at search position — wait for detection
+                # Arrived at search position, wait for detection
                 if self._detected(self._missing_color):
                     self.get_logger().info(
                         f'Found {self._missing_color} at search position '

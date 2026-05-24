@@ -13,7 +13,6 @@ _CONSECUTIVE_FAIL_LIMIT = 10
 
 def _find_usb_camera() -> str:
     """Return the first usable camera device path, preferring /dev/v4l/by-id symlinks."""
-    # Try by-id symlinks first (stable names across reboots)
     by_id = sorted(glob.glob('/dev/v4l/by-id/*video-index0'))
     for path in by_id:
         name = os.path.basename(path).lower()
@@ -23,7 +22,7 @@ def _find_usb_camera() -> str:
                 cap.release()
                 return path
 
-    # Fall back to /dev/video* — skip index 0 which is usually the integrated webcam
+    # Fall back to /dev/video* , skip index 0 which is usually the integrated webcam
     for i in range(10):
         path = f'/dev/video{i}'
         if not os.path.exists(path):
@@ -63,7 +62,7 @@ class CameraNode(Node):
         self.declare_parameter('frame_height', 480)
         self.declare_parameter('camera_frame', 'camera_link')
         # Absolute path to calibration.yaml produced by cameracalibrator.
-        # Leave empty before calibration — node will warn and publish empty CameraInfo.
+        # Leave empty before calibration, node will warn and publish empty CameraInfo.
         self.declare_parameter('calibration_url', '')
 
         device_id = self.get_parameter('device_id').value

@@ -13,8 +13,7 @@ class TransformNode(Node):
     """
     Projects pixel-space cube detections into the robot base frame.
 
-    Intrinsics are read from camera/camera_info (published by camera_node),
-    so no manual parameter updates are needed after camera calibration.
+    Intrinsics are read from camera/camera_info (published by camera_node)
 
     For each colour the node:
       1. Receives a PointStamped in camera_link frame (x=col, y=row, z=0).
@@ -28,7 +27,6 @@ class TransformNode(Node):
         super().__init__('transform_node')
 
         # table_z: height of the table surface in base_link frame (metres).
-        # Measure once: jog the TCP to the table and read its Z coordinate.
         self.declare_parameter('table_z', 0.0)
         self.declare_parameter('camera_frame', 'camera_link')
         self.declare_parameter('base_frame', 'base_link')
@@ -71,8 +69,8 @@ class TransformNode(Node):
 
     def _camera_info_callback(self, msg: CameraInfo):
         if self._fx is not None:
-            return  # already initialised; CameraInfo doesn't change at runtime
-        K = msg.k  # row-major 3x3 intrinsic matrix
+            return  # already initialised
+        K = msg.k  # 3x3 intrinsic matrix
         if K[0] == 0.0:
             self.get_logger().warn(
                 'Received CameraInfo with fx=0 — calibration not loaded yet. '

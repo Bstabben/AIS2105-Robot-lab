@@ -23,7 +23,7 @@ class DetectionNode(Node):
     def __init__(self):
         super().__init__('detection_node')
 
-        # --- HSV parameters (declared per color/bound so they are tunable) ---
+        # HSV parameters (declared per color/bound so they are tunable)
         self._hsv = {}
         for color, ranges in DEFAULT_HSV.items():
             bounds = []

@@ -19,7 +19,7 @@ def generate_launch_description():
 
     return LaunchDescription([
 
-        # ── Launch arguments ───────────────────────────────────────────────────
+        # Launch arguments
 
         DeclareLaunchArgument(
             'table_z',
@@ -48,10 +48,9 @@ def generate_launch_description():
             description='Set true to run without a physical robot (simulation only)',
         ),
 
-        # ── UR driver — publishes /joint_states and starts robot_state_publisher.
-        # robot_state_publisher (inside ur_control.launch.py) converts joint states
-        # to the TF chain: base_link → shoulder_link → ... → tool0
-        # ──────────────────────────────────────────────────────────────────────
+        #UR driverpublishes /joint_states and starts robot_state_publisher.
+        # robot_state_publisher converts joint states
+        # to the TF chain: base_link to  (...) to tool0
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(ur_launch),
@@ -62,10 +61,9 @@ def generate_launch_description():
             }.items(),
         ),
 
-        # ── Camera TF: tool0 → camera_link ────────────────────────────────────
+        # Camera TF: tool0 → camera_link
         # x, y, z describe where the camera sits relative to tool0 on the arm.
-        # Measure physically and update these values before first run.
-        # ──────────────────────────────────────────────────────────────────────
+
 
         Node(
             package='tf2_ros',
@@ -83,11 +81,7 @@ def generate_launch_description():
             ],
         ),
 
-        # ── Camera TF: camera_link → camera_optical_link ──────────────────────
-        # Fixed -π/2, 0, -π/2 rotation converts from REP-103 convention
-        # (x forward) to optical convention (z forward, x right, y down).
-        # The pinhole model in transform_node requires optical convention.
-        # ──────────────────────────────────────────────────────────────────────
+        # Camera TF: camera_link → camera_optical_link
 
         Node(
             package='tf2_ros',
@@ -103,7 +97,7 @@ def generate_launch_description():
             ],
         ),
 
-        # ── Vision (camera + detection) ───────────────────────────────────────
+        # Vision (camera + detection)
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(vision_launch),
@@ -112,7 +106,7 @@ def generate_launch_description():
             }.items(),
         ),
 
-        # ── Robot (motion + coordinator) ──────────────────────────────────────
+        # Robot (motion + coordinator)
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(robot_launch),

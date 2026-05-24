@@ -107,7 +107,7 @@ class MotionNode(Node):
 
         self.get_logger().info('Motion node ready')
 
-    # ── callbacks ─────────────────────────────────────────────────────────────
+    # callbacks
 
     def _joint_state_cb(self, msg: JointState):
         with self._joints_lock:
@@ -117,7 +117,7 @@ class MotionNode(Node):
         with self._joints_lock:
             self._cube_pos[color] = msg
 
-    # ── motion helpers ────────────────────────────────────────────────────────
+    # motion helpers
 
     def _compute_duration(self, target_joints: list[float]) -> int:
         with self._joints_lock:
@@ -229,7 +229,7 @@ class MotionNode(Node):
         res.message = f'Approached {color}' if ok else f'Failed to approach {color}'
         return res
 
-    # ── service callbacks ─────────────────────────────────────────────────────
+    # service callbacks
 
     def _svc_home(self, req, res):
         self.get_logger().info('Moving to home')
