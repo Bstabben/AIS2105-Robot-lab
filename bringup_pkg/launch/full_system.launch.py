@@ -36,7 +36,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'camera_y',
-            default_value='0.0',
+            default_value='0.01',
             description='Camera offset from tool0 along Y in metres',
         ),
         DeclareLaunchArgument(
@@ -99,5 +99,13 @@ def generate_launch_description():
             launch_arguments={
                 'approach_height': LaunchConfiguration('approach_height'),
             }.items(),
+        ),
+
+        # Table collision geometry for MoveIt2
+        Node(
+            package='bringup_pkg',
+            executable='publish_table',
+            name='table_publisher',
+            output='screen',
         ),
     ])

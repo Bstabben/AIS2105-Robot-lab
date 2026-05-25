@@ -247,8 +247,13 @@ class CoordinatorNode(Node):
                     self.get_logger().info(
                         f'Got 3D position for {self._missing_color} at search position '
                         f'{self._search_idx}')
-                    self._transition(State.MOVING_RED)
-                    self._call('red')
+                    if self._missing_color == 'red':
+                        self._transition(State.HOMING_AFTER_RED)
+                    elif self._missing_color == 'green':
+                        self._transition(State.HOMING_AFTER_GREEN)
+                    else:  # blue
+                        self._transition(State.MOVING_BLUE)
+                    self._call(self._missing_color)
                 elif self._elapsed() > self._search_timeout:
                     self._search_idx += 1
                     if self._search_idx >= self._search_count:

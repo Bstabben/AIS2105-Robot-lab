@@ -1,4 +1,4 @@
-from time import time
+from time import time, sleep
 
 import numpy as np
 import rclpy
@@ -45,6 +45,9 @@ class TransformNode(Node):
 
         self._tf_buffer = tf2_ros.Buffer()
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
+
+        self.get_logger().info('Waiting for TF chain to stabilize...')
+        sleep(2.0)
 
         self._sub_info = self.create_subscription(
             CameraInfo, 'camera/camera_info', self._camera_info_callback, 1)
