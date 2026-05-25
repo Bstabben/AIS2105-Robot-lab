@@ -1,3 +1,5 @@
+from time import time
+
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -67,6 +69,9 @@ class TransformNode(Node):
             f'(table_z={self._table_z:.3f} m)'
         )
 
+        self.get_logger().info('Waiting for TF to stabilize...')
+        time.sleep(1.0)  # Give UR driver time to publish base_link→tool0
+
     def _camera_info_callback(self, msg: CameraInfo):
         if self._fx is not None:
             return  # already initialised
@@ -107,7 +112,7 @@ class TransformNode(Node):
                 self._base_frame,
                 self._camera_frame,
                 msg.header.stamp,
-                timeout=rclpy.duration.Duration(seconds=0.1),
+                timeout=rclpy.duration.Duration(seconds=0.5),
             )
         except (tf2_ros.LookupException,
                 tf2_ros.ConnectivityException,

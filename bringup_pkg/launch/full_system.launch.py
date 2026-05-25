@@ -26,12 +26,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'approach_height',
-            default_value='0.00',
+            default_value='0.01',
             description='Distance above cube surface to stop at (metres)',
         ),
         DeclareLaunchArgument(
             'camera_x',
-            default_value='0.00',
+            default_value='0.01',
             description='Camera offset from tool0 along X in metres — measure physically and tune',
         ),
         DeclareLaunchArgument(
@@ -41,7 +41,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'camera_z',
-            default_value='0.00',
+            default_value='0.01',
             description='Camera offset from tool0 along Z in metres — measure physically and tune',
         ),
 
