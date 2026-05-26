@@ -9,6 +9,7 @@ from geometry_msgs.msg import Pose
 class TablePublisher(Node):
     def __init__(self):
         super().__init__('table_publisher')
+        self.declare_parameter('table_z', 0.047)
         self._pub = self.create_publisher(PlanningScene, '/planning_scene', 10)
         self._msg = self._build_msg()
         # Publish immediately, then every 10 s so the table survives a MoveIt2 restart
@@ -16,6 +17,8 @@ class TablePublisher(Node):
         self._publish()
 
     def _build_msg(self):
+        table_z = self.get_parameter('table_z').get_parameter_value().double_value
+
         obj = CollisionObject()
         obj.header.frame_id = 'base_link'
         obj.id = 'table'
@@ -26,7 +29,7 @@ class TablePublisher(Node):
         box.dimensions = [2.0, 2.0, 0.05]
 
         pose = Pose()
-        pose.position.z = -0.05 - 0.025  # top surface at z=-0.05, centre offset down
+        pose.position.z = table_z - 0.025  # top surface at table_z, centre offset down
         pose.orientation.w = 1.0
 
         obj.primitives.append(box)

@@ -16,6 +16,11 @@ def generate_launch_description():
             default_value='0.0',
             description='Table surface Z in base_link frame (metres)',
         ),
+        DeclareLaunchArgument(
+            'cube_height',
+            default_value='0.10',
+            description='Height of cubes in metres — ray intersects at table_z + cube_height',
+        ),
 
         Node(
             package='camera_pkg',
@@ -32,7 +37,8 @@ def generate_launch_description():
             output='screen',
             parameters=[
                 config_file,
-                {'table_z': LaunchConfiguration('table_z')},
+                {'table_z': LaunchConfiguration('table_z'),
+                 'cube_height': LaunchConfiguration('cube_height')},
             ],
         ),
     ])

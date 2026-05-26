@@ -1,31 +1,12 @@
-# All joint values are in radians.
-# Positive direction follows the right-hand rule for each joint.
-
 motion_node:
   ros__parameters:
     home_joints: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]
-
-
-    # Overview position: arm extended over the table, camera pointing down.
-    # TUNE THIS before first run — jog the robot to the desired pose and read
-    # joint values from: ros2 topic echo /joint_states
     overview_joints: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]
 
-    # Search positions tried (in order) when a cube is not found at overview.
-    # Add more poses as needed; each is a flat list of 6 joint values.
-
-    # OLD
-    #search_joints_0: [0.3,  -1.2, 1.0, -1.35, -1.5708, 0.0]
-    #search_joints_1: [-0.3, -1.2, 1.0, -1.35, -1.5708, 0.0]
-    #search_joints_2: [0.0,  -1.0, 1.2, -1.5,  -1.5708, 0.0]
-    #search_count: 3
-
-    # NEW
     search_joints_0: [-1.45, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan right
     search_joints_1: [-2.05, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan left
     search_joints_2: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819] # back to centre
     search_count: 3
-
 
     # Fallback motion duration when joint-delta calculation is unavailable (seconds)
     move_duration_sec: 6

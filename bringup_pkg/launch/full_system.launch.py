@@ -25,6 +25,11 @@ def generate_launch_description():
                         'Measure by jogging TCP to table surface and reading Z.',
         ),
         DeclareLaunchArgument(
+            'cube_height',
+            default_value='0.10',
+            description='Height of cubes in metres. Ray intersects at table_z + cube_height.',
+        ),
+        DeclareLaunchArgument(
             'approach_height',
             default_value='0.01',
             description='Distance above cube surface to stop at (metres)',
@@ -89,6 +94,7 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(vision_launch),
             launch_arguments={
                 'table_z': LaunchConfiguration('table_z'),
+                'cube_height': LaunchConfiguration('cube_height'),
             }.items(),
         ),
 
@@ -107,5 +113,6 @@ def generate_launch_description():
             executable='publish_table',
             name='table_publisher',
             output='screen',
+            parameters=[{'table_z': LaunchConfiguration('table_z')}],
         ),
     ])

@@ -29,11 +29,15 @@ class TransformNode(Node):
         super().__init__('transform_node')
 
         # table_z: height of the table surface in base_link frame (metres).
+        # cube_height: height of the cubes (metres) — ray is intersected at
+        #              table_z + cube_height (the cube top) for accurate X,Y.
         self.declare_parameter('table_z', 0.0)
+        self.declare_parameter('cube_height', 0.10)
         self.declare_parameter('camera_frame', 'camera_link')
         self.declare_parameter('base_frame', 'base_link')
 
         self._table_z = self.get_parameter('table_z').value
+        self._cube_height = self.get_parameter('cube_height').value
         self._camera_frame = self.get_parameter('camera_frame').value
         self._base_frame = self.get_parameter('base_frame').value
 
@@ -67,9 +71,12 @@ class TransformNode(Node):
                 10,
             )
 
+        self._intersection_z = self._table_z + self._cube_height
+
         self.get_logger().info(
             f'Transform node started — waiting for camera_info '
-            f'(table_z={self._table_z:.3f} m)'
+            f'(table_z={self._table_z:.3f} m, cube_height={self._cube_height:.3f} m, '
+            f'intersection_z={self._intersection_z:.3f} m)'
         )
 
         self.get_logger().info('Waiting for TF to stabilize...')
@@ -137,7 +144,7 @@ class TransformNode(Node):
             self.get_logger().warn(
                 f'Ray for {color} is parallel to table plane — skipping')
             return
-        s = (self._table_z - origin[2]) / ray_base[2]
+        s = (self._intersection_z - origin[2]) / ray_base[2]
         if s < 0:
             self.get_logger().warn(
                 f'Table intersection for {color} is behind the camera — skipping')

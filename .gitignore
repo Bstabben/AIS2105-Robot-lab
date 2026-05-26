@@ -1,1 +1,5 @@
 mega-project.md
+.claude/
+.vscode/
+__pycache__/
+*.pyc
