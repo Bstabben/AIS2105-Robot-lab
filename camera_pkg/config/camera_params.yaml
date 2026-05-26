@@ -16,6 +16,6 @@ camera_node:
 # camera_frame and base_frame must match the TF frames from ur_robot_driver.
 transform_node:
   ros__parameters:
-    table_z: 0.047
+    table_z: -0.05
     camera_frame: camera_optical_link
     base_frame: base_link

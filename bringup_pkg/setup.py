@@ -14,8 +14,8 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'),
             glob('launch/*.launch.py')),
-        (os.path.join('share', package_name, 'scripts'),
-            glob('scripts/*.py')),
+        (os.path.join('share', package_name, 'config'),
+            glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -25,6 +25,6 @@ setup(
     license='MIT',
     extras_require={'test': ['pytest']},
     entry_points={'console_scripts': [
-        'publish_table=bringup_pkg.scripts.publish_table:main',
+        'publish_table=bringup_pkg.publish_table:main',
     ]},
 )
