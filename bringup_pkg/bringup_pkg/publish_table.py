@@ -29,7 +29,7 @@ class TablePublisher(Node):
         box.dimensions = [2.0, 2.0, 0.05]
 
         pose = Pose()
-        pose.position.z = table_z - 0.025  # top surface at table_z, centre offset down
+        pose.position.z = table_z - 0.085  # shifted down by box height (0.05) + 0.01 m clearance
         pose.orientation.w = 1.0
 
         obj.primitives.append(box)

@@ -80,7 +80,7 @@ class TransformNode(Node):
         )
 
         self.get_logger().info('Waiting for TF to stabilize...')
-        time.sleep(1.0)  # Give UR driver time to publish base_link→tool0
+        sleep(1.0)  # Give UR driver time to publish base_link→tool0
 
     def _camera_info_callback(self, msg: CameraInfo):
         if self._fx is not None:
@@ -121,7 +121,7 @@ class TransformNode(Node):
             tf = self._tf_buffer.lookup_transform(
                 self._base_frame,
                 self._camera_frame,
-                msg.header.stamp,
+                rclpy.time.Time(),
                 timeout=rclpy.duration.Duration(seconds=0.5),
             )
         except (tf2_ros.LookupException,

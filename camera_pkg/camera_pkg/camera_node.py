@@ -107,7 +107,7 @@ class CameraNode(Node):
         self._cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
         self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-        self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
 
         period = 1.0 / frame_rate
         self._timer = self.create_timer(period, self._timer_callback)
