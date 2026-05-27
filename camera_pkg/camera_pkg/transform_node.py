@@ -1,3 +1,5 @@
+from time import time, sleep
+
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -16,7 +18,7 @@ class TransformNode(Node):
     Intrinsics are read from camera/camera_info (published by camera_node)
 
     For each colour the node:
-      1. Receives a PointStamped in camera_link frame (x=col, y=row, z=0).
+      1. Receives a PointStamped in camera_optical_link frame (x=col, y=row, z=0).
       2. Builds a unit ray through the pinhole camera model using live CameraInfo.
       3. Looks up the live TF from camera_link to base_link.
       4. Intersects the ray with the table plane (z = table_z in base_link).
@@ -27,11 +29,15 @@ class TransformNode(Node):
         super().__init__('transform_node')
 
         # table_z: height of the table surface in base_link frame (metres).
+        # cube_height: height of the cubes (metres) — ray is intersected at
+        #              table_z + cube_height (the cube top) for accurate X,Y.
         self.declare_parameter('table_z', 0.0)
+        self.declare_parameter('cube_height', 0.10)
         self.declare_parameter('camera_frame', 'camera_link')
         self.declare_parameter('base_frame', 'base_link')
 
         self._table_z = self.get_parameter('table_z').value
+        self._cube_height = self.get_parameter('cube_height').value
         self._camera_frame = self.get_parameter('camera_frame').value
         self._base_frame = self.get_parameter('base_frame').value
 
@@ -43,6 +49,9 @@ class TransformNode(Node):
 
         self._tf_buffer = tf2_ros.Buffer()
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
+
+        self.get_logger().info('Waiting for TF chain to stabilize...')
+        sleep(2.0)
 
         self._sub_info = self.create_subscription(
             CameraInfo, 'camera/camera_info', self._camera_info_callback, 1)
@@ -62,10 +71,16 @@ class TransformNode(Node):
                 10,
             )
 
+        self._intersection_z = self._table_z + self._cube_height
+
         self.get_logger().info(
             f'Transform node started — waiting for camera_info '
-            f'(table_z={self._table_z:.3f} m)'
+            f'(table_z={self._table_z:.3f} m, cube_height={self._cube_height:.3f} m, '
+            f'intersection_z={self._intersection_z:.3f} m)'
         )
+
+        self.get_logger().info('Waiting for TF to stabilize...')
+        sleep(1.0)  # Give UR driver time to publish base_link→tool0
 
     def _camera_info_callback(self, msg: CameraInfo):
         if self._fx is not None:
@@ -107,7 +122,7 @@ class TransformNode(Node):
                 self._base_frame,
                 self._camera_frame,
                 rclpy.time.Time(),
-                timeout=rclpy.duration.Duration(seconds=0.1),
+                timeout=rclpy.duration.Duration(seconds=0.5),
             )
         except (tf2_ros.LookupException,
                 tf2_ros.ConnectivityException,
@@ -129,7 +144,7 @@ class TransformNode(Node):
             self.get_logger().warn(
                 f'Ray for {color} is parallel to table plane — skipping')
             return
-        s = (self._table_z - origin[2]) / ray_base[2]
+        s = (self._intersection_z - origin[2]) / ray_base[2]
         if s < 0:
             self.get_logger().warn(
                 f'Table intersection for {color} is behind the camera — skipping')

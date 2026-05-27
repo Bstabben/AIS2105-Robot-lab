@@ -21,12 +21,18 @@ def generate_launch_description():
             default_value='0.047',
             description='Table surface Z in base_link frame (metres)',
         ),
+        DeclareLaunchArgument(
+            'cube_height',
+            default_value='0.10',
+            description='Height of cubes in metres',
+        ),
 
         # Camera hardware interface + coordinate transform
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(camera_launch),
             launch_arguments={
                 'table_z': LaunchConfiguration('table_z'),
+                'cube_height': LaunchConfiguration('cube_height'),
             }.items(),
         ),
 

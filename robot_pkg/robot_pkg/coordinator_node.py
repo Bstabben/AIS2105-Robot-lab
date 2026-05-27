@@ -3,27 +3,42 @@ import time
 from enum import Enum, auto
 
 import rclpy
+import rclpy.time
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
+from geometry_msgs.msg import PointStamped
+import tf2_ros
 
 
 class State(Enum):
-    IDLE          = auto()
-    MOVING_HOME   = auto()
-    MOVING_OVERVIEW = auto()
-    WAITING_DETECT  = auto()
-    MOVING_RED   = auto()
-    MOVING_GREEN = auto()
-    MOVING_BLUE  = auto()
-    SEARCHING     = auto()
-    ALERT         = auto()
-    DONE          = auto()
+    IDLE                = auto()
+    MOVING_HOME         = auto()
+    MOVING_OVERVIEW     = auto()
+    WAITING_TF          = auto()
+    WAITING_RED         = auto()
+    HOMING_BEFORE_RED   = auto()
+    MOVING_RED          = auto()
+    HOMING_AFTER_RED    = auto()
+    WAITING_GREEN       = auto()
+    HOMING_BEFORE_GREEN = auto()
+    MOVING_GREEN        = auto()
+    HOMING_AFTER_GREEN  = auto()
+    WAITING_BLUE        = auto()
+    HOMING_BEFORE_BLUE  = auto()
+    MOVING_BLUE         = auto()
+    HOMING_AFTER_BLUE   = auto()
+    SEARCHING           = auto()
+    ALERT               = auto()
+    DONE                = auto()
 
 
 CUBE_COLORS = ('red', 'green', 'blue')
+
+# States where the robot is stationary and detections should be accepted.
+_WAITING_STATES = {State.WAITING_RED, State.WAITING_GREEN, State.WAITING_BLUE}
 
 
 class CoordinatorNode(Node):
@@ -35,30 +50,50 @@ class CoordinatorNode(Node):
     If a cube is not detected within detection_timeout seconds, the robot tries
     each search position in turn.  After all search positions are exhausted it
     enters ALERT and stops.
+
+    3D position updates are only accepted while the robot is stationary
+    (WAITING_* states or after arriving at a search position).
     """
 
     def __init__(self):
         super().__init__('coordinator_node')
 
         self.declare_parameter('detection_timeout', 5.0)
-        self.declare_parameter('search_timeout',    4.0)
+        self.declare_parameter('search_timeout',    5.0)
         self.declare_parameter('search_count',      3)
+        self.declare_parameter('tf_timeout',        60.0)
 
         self._detection_timeout = self.get_parameter('detection_timeout').value
         self._search_timeout    = self.get_parameter('search_timeout').value
         self._search_count      = self.get_parameter('search_count').value
+        self._tf_timeout        = self.get_parameter('tf_timeout').value
 
-        self._state         = State.IDLE
-        self._pending       = None        # current async service future
-        self._detections    = {}          # latest vision/detections payload
-        self._wait_start    = 0.0         # time we entered current wait state
-        self._search_idx    = 0           # which search position we're trying
-        self._missing_color = ''          # cube that triggered search
+        self._tf_buffer   = tf2_ros.Buffer()
+        self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
+
+        self._state               = State.IDLE
+        self._pending             = None        # current async service future
+        self._detections          = {}          # latest vision/detections payload
+        self._has_3d              = {c: False for c in CUBE_COLORS}
+        self._wait_start          = 0.0
+        self._search_idx          = 0
+        self._missing_color       = ''
+        self._accepting_detections = False      # only True while robot is stationary
+        self._search_arrived      = False       # True once trajectory to search pos finished
 
         cb = ReentrantCallbackGroup()
 
         self._sub_detections = self.create_subscription(
             String, 'vision/detections', self._detections_cb, 10)
+
+        for color in CUBE_COLORS:
+            self.create_subscription(
+                PointStamped,
+                f'vision/{color}_position_3d',
+                lambda msg, c=color: self._on_3d_pos(msg, c),
+                10,
+                callback_group=cb,
+            )
 
         # Service clients for motion_node
         self._cli = {
@@ -100,12 +135,6 @@ class CoordinatorNode(Node):
     def _pending_ok(self) -> bool:
         return self._pending_done() and self._pending.result().success
 
-    def _detected(self, color: str) -> bool:
-        return color in self._detections
-
-    def _all_detected(self) -> bool:
-        return all(self._detected(c) for c in CUBE_COLORS)
-
     def _start_timer(self):
         self._wait_start = time.monotonic()
 
@@ -113,6 +142,15 @@ class CoordinatorNode(Node):
         return time.monotonic() - self._wait_start
 
     # callbacks
+
+    def _on_3d_pos(self, msg: PointStamped, color: str):
+        # Ignore detections while the robot is moving to avoid false positives
+        # from camera shake or nearby objects picked up mid-trajectory.
+        if not self._accepting_detections:
+            return
+        if not self._has_3d[color]:
+            self.get_logger().info(f'3D position received for {color}')
+            self._has_3d[color] = True
 
     def _detections_cb(self, msg: String):
         try:
@@ -139,6 +177,10 @@ class CoordinatorNode(Node):
         self.get_logger().info(f'{self._state.name} → {new_state.name}')
         self._state = new_state
         self._pending = None
+        self._search_arrived = False
+        # Accept detections only in stationary waiting states;
+        # SEARCHING manages its own flag once the robot arrives.
+        self._accepting_detections = new_state in _WAITING_STATES
 
     def _tick(self):
         s = self._state
@@ -153,81 +195,156 @@ class CoordinatorNode(Node):
 
         elif s == State.MOVING_OVERVIEW:
             if self._pending_done():
-                self._transition(State.WAITING_DETECT)
+                self._transition(State.WAITING_TF)
                 self._start_timer()
 
-        elif s == State.WAITING_DETECT:
-            if self._all_detected():
-                self._transition(State.MOVING_RED)
-                self._call('red')
+        elif s == State.WAITING_TF:
+            try:
+                self._tf_buffer.lookup_transform(
+                    'base_link', 'camera_optical_link', rclpy.time.Time())
+                self.get_logger().info(
+                    f'TF ready after {self._elapsed():.1f} s — starting detection')
+                self._has_3d['red'] = False
+                self._transition(State.WAITING_RED)
+                self._start_timer()
+            except tf2_ros.LookupException:
+                if self._elapsed() > self._tf_timeout:
+                    self.get_logger().warning(
+                        f'TF not ready after {self._tf_timeout:.0f} s — starting anyway')
+                    self._has_3d['red'] = False
+                    self._transition(State.WAITING_RED)
+                    self._start_timer()
+
+        elif s == State.WAITING_RED:
+            if self._has_3d['red']:
+                self._transition(State.HOMING_BEFORE_RED)
+                self._call('home')
             elif self._elapsed() > self._detection_timeout:
-                missing = [c for c in CUBE_COLORS if not self._detected(c)]
-                self._missing_color = missing[0]
-                self.get_logger().warn(
-                    f'Timeout waiting for {missing} — starting search')
+                self._missing_color = 'red'
+                self.get_logger().warning('Timeout — no 3D position for red — starting search')
                 self._search_idx = 0
                 self._transition(State.SEARCHING)
                 self._call(f'search_{self._search_idx}')
 
+        elif s == State.HOMING_BEFORE_RED:
+            if self._pending_done():
+                self._transition(State.MOVING_RED)
+                self._call('red')
+
         elif s == State.MOVING_RED:
             if self._pending_done():
                 if self._pending_ok():
-                    self._transition(State.MOVING_GREEN)
-                    self._call('green')
+                    self._transition(State.HOMING_AFTER_RED)
+                    self._call('home')
                 else:
                     self._missing_color = 'red'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
                     self._call(f'search_{self._search_idx}')
 
+        elif s == State.HOMING_AFTER_RED:
+            if self._pending_done():
+                self._has_3d['green'] = False
+                self._transition(State.WAITING_GREEN)
+                self._start_timer()
+
+        elif s == State.WAITING_GREEN:
+            if self._has_3d['green']:
+                self._transition(State.HOMING_BEFORE_GREEN)
+                self._call('home')
+            elif self._elapsed() > self._detection_timeout:
+                self._missing_color = 'green'
+                self.get_logger().warning('Timeout — no 3D position for green — starting search')
+                self._search_idx = 0
+                self._transition(State.SEARCHING)
+                self._call(f'search_{self._search_idx}')
+
+        elif s == State.HOMING_BEFORE_GREEN:
+            if self._pending_done():
+                self._transition(State.MOVING_GREEN)
+                self._call('green')
+
         elif s == State.MOVING_GREEN:
             if self._pending_done():
                 if self._pending_ok():
-                    self._transition(State.MOVING_BLUE)
-                    self._call('blue')
+                    self._transition(State.HOMING_AFTER_GREEN)
+                    self._call('home')
                 else:
                     self._missing_color = 'green'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
                     self._call(f'search_{self._search_idx}')
 
+        elif s == State.HOMING_AFTER_GREEN:
+            if self._pending_done():
+                self._has_3d['blue'] = False
+                self._transition(State.WAITING_BLUE)
+                self._start_timer()
+
+        elif s == State.WAITING_BLUE:
+            if self._has_3d['blue']:
+                self._transition(State.HOMING_BEFORE_BLUE)
+                self._call('home')
+            elif self._elapsed() > self._detection_timeout:
+                self._missing_color = 'blue'
+                self.get_logger().warning('Timeout — no 3D position for blue — starting search')
+                self._search_idx = 0
+                self._transition(State.SEARCHING)
+                self._call(f'search_{self._search_idx}')
+
+        elif s == State.HOMING_BEFORE_BLUE:
+            if self._pending_done():
+                self._transition(State.MOVING_BLUE)
+                self._call('blue')
+
         elif s == State.MOVING_BLUE:
             if self._pending_done():
                 if self._pending_ok():
-                    self._transition(State.DONE)
+                    self._transition(State.HOMING_AFTER_BLUE)
+                    self._call('home')
                 else:
                     self._missing_color = 'blue'
                     self._search_idx = 0
                     self._transition(State.SEARCHING)
                     self._call(f'search_{self._search_idx}')
 
-        elif s == State.SEARCHING:
+        elif s == State.HOMING_AFTER_BLUE:
             if self._pending_done():
-                # Arrived at search position, wait for detection
-                if self._detected(self._missing_color):
+                self._transition(State.DONE)
+
+        elif s == State.SEARCHING:
+            if not self._search_arrived:
+                # Phase 1: waiting for the trajectory to the search position to finish
+                if self._pending_done():
+                    self._search_arrived = True
+                    self._accepting_detections = True   # robot is now stationary
+                    self._start_timer()
                     self.get_logger().info(
-                        f'Found {self._missing_color} at search position '
-                        f'{self._search_idx}')
-                    _resume = {
-                        'red':   (State.MOVING_RED,   'red'),
-                        'green': (State.MOVING_GREEN, 'green'),
-                        'blue':  (State.MOVING_BLUE,  'blue'),
+                        f'Arrived at search position {self._search_idx} — '
+                        f'dwelling {self._search_timeout:.0f} s')
+            else:
+                # Phase 2: stationary dwell — wait for detection or timeout
+                if self._has_3d[self._missing_color]:
+                    self.get_logger().info(
+                        f'Got 3D position for {self._missing_color} at search '
+                        f'position {self._search_idx} — homing before approach')
+                    color_states = {
+                        'red':   State.HOMING_BEFORE_RED,
+                        'green': State.HOMING_BEFORE_GREEN,
+                        'blue':  State.HOMING_BEFORE_BLUE,
                     }
-                    next_state, color_key = _resume[self._missing_color]
-                    self._transition(next_state)
-                    self._call(color_key)
+                    self._transition(color_states[self._missing_color])
+                    self._call('home')
                 elif self._elapsed() > self._search_timeout:
                     self._search_idx += 1
                     if self._search_idx >= self._search_count:
                         self._transition(State.ALERT)
                     else:
                         self.get_logger().info(
-                            f'Trying search position {self._search_idx}')
-                        self._start_timer()
+                            f'Moving to search position {self._search_idx}')
+                        self._accepting_detections = False
+                        self._search_arrived = False
                         self._call(f'search_{self._search_idx}')
-                elif self._pending is None or self._pending.done():
-                    # Re-arm timer after arriving
-                    self._start_timer()
 
         elif s == State.ALERT:
             self.get_logger().error(

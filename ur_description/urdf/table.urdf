@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<robot name="table">
+  <link name="table_base">
+    <visual>
+      <geometry>
+        <box size="2.0 2.0 0.05"/>
+      </geometry>
+      <origin xyz="0 0 -0.025"/>
+      <material name="table_color">
+        <color rgba="0.5 0.5 0.5 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="2.0 2.0 0.05"/>
+      </geometry>
+      <origin xyz="0 0 -0.025"/>
+    </collision>
+  </link>
+</robot>

@@ -1,31 +1,22 @@
-# All joint values are in radians.
-# Positive direction follows the right-hand rule for each joint.
-
 motion_node:
   ros__parameters:
     home_joints: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]
-
-
-    # Overview position: arm extended over the table, camera pointing down.
-    # TUNE THIS before first run — jog the robot to the desired pose and read
-    # joint values from: ros2 topic echo /joint_states
     overview_joints: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]
 
-    # Search positions tried (in order) when a cube is not found at overview.
-    # Add more poses as needed; each is a flat list of 6 joint values.
+    search_joints_0: [-1.45,  -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan right
+    search_joints_1: [-2.05,  -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan left
+    search_joints_2: [-1.15,  -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan right more
+    search_joints_3: [-2.35,  -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan left more
+    search_joints_4: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # centre (fallback)
+    search_count: 5
 
-    # OLD
-    #search_joints_0: [0.3,  -1.2, 1.0, -1.35, -1.5708, 0.0]
-    #search_joints_1: [-0.3, -1.2, 1.0, -1.35, -1.5708, 0.0]
-    #search_joints_2: [0.0,  -1.0, 1.2, -1.5,  -1.5708, 0.0]
-    #search_count: 3
-
-    # NEW
-    search_joints_0: [-2.05, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan left
-    search_joints_1: [-1.45, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan right
-    search_joints_2: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819] # back to centre
-    search_count: 3
-
+    # Joint limits (radians) — IK solutions outside these windows are rejected.
+    # Pan: home/overview ~-1.75; search extremes -1.15 and -2.35.
+    pan_min:  -2.7
+    pan_max:  -0.5
+    # Lift: overview position is -1.7426 — cannot go more upright than that.
+    lift_min: -2.5
+    lift_max: -1.7
 
     # Fallback motion duration when joint-delta calculation is unavailable (seconds)
     move_duration_sec: 6
@@ -45,5 +36,5 @@ motion_node:
 coordinator_node:
   ros__parameters:
     detection_timeout: 5.0
-    search_timeout: 4.0
-    search_count: 3
+    search_timeout: 5.0
+    search_count: 5

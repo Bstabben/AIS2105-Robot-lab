@@ -1,7 +1,8 @@
 import json
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from rclpy.qos import qos_profile_sensor_data
+from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import String
 from geometry_msgs.msg import PointStamped
 from cv_bridge import CvBridge
@@ -9,12 +10,12 @@ import cv2
 import numpy as np
 
 
-# Each color entry: list of one or two [lower, upper] HSV bound pairs.
-# Red wraps around 180° in OpenCV HSV so it needs two ranges.
+# HSV ranges — each entry is a (lower, upper) pair.
+# Values are [H, S, V]: H 0-180, S 0-255, V 0-255 (OpenCV convention).
 DEFAULT_HSV = {
-    'red':   [([0,   120,  70], [10,  255, 255]),
-              ([170, 120,  70], [180, 255, 255])],
-    'green': [([35,  80,   50], [85,  255, 255])],
+    'red':   [([  0,  60,  40], [ 10, 255, 255]),
+              ([170,  60,  40], [180, 255, 255])],
+    'green': [([ 35,  80,  50], [ 85, 255, 255])],
     'blue':  [([100, 150,  50], [130, 255, 255])],
 }
 
@@ -23,7 +24,6 @@ class DetectionNode(Node):
     def __init__(self):
         super().__init__('detection_node')
 
-        # HSV parameters (declared per color/bound so they are tunable)
         self._hsv = {}
         for color, ranges in DEFAULT_HSV.items():
             bounds = []
@@ -42,21 +42,45 @@ class DetectionNode(Node):
         self._min_area = self.get_parameter('min_contour_area').value
         self._publish_debug = self.get_parameter('publish_debug_image').value
 
+        self._K: np.ndarray | None = None
+        self._D: np.ndarray | None = None
+
         self._bridge = CvBridge()
 
+        # Blob detector — more stable than raw contours for compact colour regions
+        params = cv2.SimpleBlobDetector_Params()
+        params.filterByArea = True
+        params.minArea = float(self._min_area)
+        params.maxArea = 50000.0
+        params.filterByCircularity = False   # cubes are not circular
+        params.filterByConvexity = True
+        params.minConvexity = 0.6            # rejects fragmented / L-shaped noise
+        params.filterByInertia = False
+        self._blob_detector = cv2.SimpleBlobDetector_create(params)
+
+        self._sub_info = self.create_subscription(
+            CameraInfo, 'camera/camera_info', self._camera_info_cb, 1)
         self._sub = self.create_subscription(
             Image, 'camera/image_raw', self._image_callback, 1)
         self._pub_detections = self.create_publisher(String, 'vision/detections', 10)
 
-        # Per-color position publishers (pixel coords, z=0)
         self._pub_position = {
             color: self.create_publisher(PointStamped, f'vision/{color}_position', 10)
             for color in DEFAULT_HSV
         }
 
-        self._pub_debug = self.create_publisher(Image, 'vision/debug_image', 10)
+        # Use sensor-data QoS so rqt_image_view and image_tools can subscribe
+        self._pub_debug = self.create_publisher(
+            Image, 'vision/debug_image', qos_profile_sensor_data)
 
         self.get_logger().info('Detection node started')
+
+    def _camera_info_cb(self, msg: CameraInfo):
+        if self._K is not None or msg.k[0] == 0.0:
+            return
+        self._K = np.array(msg.k, dtype=np.float64).reshape(3, 3)
+        self._D = np.array(msg.d, dtype=np.float64)
+        self.get_logger().info('Camera intrinsics loaded for undistortion')
 
     def _image_callback(self, msg: Image):
         try:
@@ -66,8 +90,18 @@ class DetectionNode(Node):
 
     def _process(self, msg: Image):
         frame = self._bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        blurred = cv2.GaussianBlur(hsv, (5, 5), 0)
+        if self._K is not None and self._D is not None:
+            frame = cv2.undistort(frame, self._K, self._D)
+
+        # Blur in BGR space BEFORE converting to HSV — avoids hue wrapping
+        # artefacts that occur when blurring the H channel directly (especially
+        # bad for red, which sits at the 0°/180° boundary).
+        blurred_bgr = cv2.GaussianBlur(frame, (9, 9), 0)
+        hsv = cv2.cvtColor(blurred_bgr, cv2.COLOR_BGR2HSV)
+
+        # Morphological kernels
+        k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+        k_open  = cv2.getStructuringElement(cv2.MORPH_RECT,    (3, 3))
 
         detections = {}
         debug_frame = frame.copy()
@@ -75,35 +109,26 @@ class DetectionNode(Node):
         for color, ranges in self._hsv.items():
             mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
             for lower, upper in ranges:
-                mask |= cv2.inRange(blurred, lower, upper)
+                mask |= cv2.inRange(hsv, lower, upper)
 
-            # Morphological cleanup
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=2)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, kernel, iterations=1)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k_open,  iterations=1)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_close, iterations=2)
 
-            contours, _ = cv2.findContours(
-                mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Blob detector expects dark blobs on white — invert the mask
+            keypoints = self._blob_detector.detect(cv2.bitwise_not(mask))
 
-            best = None
-            best_area = self._min_area
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-                if area > best_area:
-                    best_area = area
-                    best = cnt
-
-            if best is not None:
-                x, y, w, h = cv2.boundingRect(best)
-                cx = int(x + w / 2)
-                cy = int(y + h / 2)
+            if keypoints:
+                # Pick the largest blob
+                best = max(keypoints, key=lambda k: k.size)
+                cx = int(best.pt[0])
+                cy = int(best.pt[1])
+                r  = int(best.size / 2)
                 detections[color] = {
                     'center_px': [cx, cy],
-                    'bbox_px':   [x, y, w, h],
-                    'area_px2':  int(best_area),
+                    'bbox_px':   [cx - r, cy - r, r * 2, r * 2],
+                    'area_px2':  int(np.pi * r * r),
                 }
 
-                # Publish pixel position as PointStamped (x=col, y=row, z=0)
                 pt = PointStamped()
                 pt.header = msg.header
                 pt.point.x = float(cx)
@@ -115,9 +140,9 @@ class DetectionNode(Node):
                     color_bgr = {'red': (0, 0, 255),
                                  'green': (0, 255, 0),
                                  'blue': (255, 0, 0)}[color]
-                    cv2.rectangle(debug_frame, (x, y), (x + w, y + h), color_bgr, 2)
-                    cv2.circle(debug_frame, (cx, cy), 5, color_bgr, -1)
-                    cv2.putText(debug_frame, color, (x, y - 8),
+                    cv2.circle(debug_frame, (cx, cy), max(r, 5), color_bgr, 2)
+                    cv2.circle(debug_frame, (cx, cy), 4, color_bgr, -1)
+                    cv2.putText(debug_frame, color, (cx - r, cy - r - 8),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_bgr, 2)
 
         payload = {

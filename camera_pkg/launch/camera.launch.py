@@ -12,22 +12,14 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument(
-            'device_id',
-            default_value='4',
-            description='USB camera device index (e.g. 4 for /dev/video4)',
-        ),
-        DeclareLaunchArgument(
-            'calibration_file',
-            default_value='',
-            description=(
-                'URL to camera calibration file, e.g. '
-                'file:///home/user/calibration.yaml'
-            ),
-        ),
-        DeclareLaunchArgument(
             'table_z',
             default_value='0.0',
             description='Table surface Z in base_link frame (metres)',
+        ),
+        DeclareLaunchArgument(
+            'cube_height',
+            default_value='0.10',
+            description='Height of cubes in metres — ray intersects at table_z + cube_height',
         ),
 
         Node(
@@ -45,7 +37,8 @@ def generate_launch_description():
             output='screen',
             parameters=[
                 config_file,
-                {'table_z': LaunchConfiguration('table_z')},
+                {'table_z': LaunchConfiguration('table_z'),
+                 'cube_height': LaunchConfiguration('cube_height')},
             ],
         ),
     ])

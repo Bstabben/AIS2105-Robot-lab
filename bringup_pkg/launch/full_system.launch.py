@@ -13,9 +13,6 @@ def generate_launch_description():
     robot_launch = PathJoinSubstitution([
         FindPackageShare('robot_pkg'), 'launch', 'robot.launch.py'
     ])
-    ur_launch = PathJoinSubstitution([
-        FindPackageShare('ur_robot_driver'), 'launch', 'ur_control.launch.py'
-    ])
 
     return LaunchDescription([
 
@@ -28,37 +25,29 @@ def generate_launch_description():
                         'Measure by jogging TCP to table surface and reading Z.',
         ),
         DeclareLaunchArgument(
+            'cube_height',
+            default_value='0.05',
+            description='Height of cubes in metres. Ray intersects at table_z + cube_height.',
+        ),
+        DeclareLaunchArgument(
             'approach_height',
-            default_value='0.10',
+            default_value='0.01',
             description='Distance above cube surface to stop at (metres)',
         ),
         DeclareLaunchArgument(
-            'ur_type',
-            default_value='ur5e',
-            description='UR robot model (ur3, ur3e, ur5, ur5e, ur10, ur10e, ur16e)',
+            'camera_x',
+            default_value='0.01',
+            description='Camera offset from tool0 along X in metres — measure physically and tune',
         ),
         DeclareLaunchArgument(
-            'robot_ip',
-            default_value='192.168.1.102',
-            description='IP address of the UR controller',
+            'camera_y',
+            default_value='0.01',
+            description='Camera offset from tool0 along Y in metres',
         ),
         DeclareLaunchArgument(
-            'use_fake_hardware',
-            default_value='false',
-            description='Set true to run without a physical robot (simulation only)',
-        ),
-
-        #UR driverpublishes /joint_states and starts robot_state_publisher.
-        # robot_state_publisher converts joint states
-        # to the TF chain: base_link to  (...) to tool0
-
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(ur_launch),
-            launch_arguments={
-                'ur_type':           LaunchConfiguration('ur_type'),
-                'robot_ip':          LaunchConfiguration('robot_ip'),
-                'use_fake_hardware': LaunchConfiguration('use_fake_hardware'),
-            }.items(),
+            'camera_z',
+            default_value='0.085',
+            description='Camera offset from tool0 along Z in metres — lens is 8.5 cm from flange centre',
         ),
 
         # Camera TF: tool0 → camera_link
@@ -70,9 +59,9 @@ def generate_launch_description():
             executable='static_transform_publisher',
             name='camera_link_tf',
             arguments=[
-                '--x',     '0.05',
-                '--y',     '0.0',
-                '--z',     '0.05',
+                '--x',     LaunchConfiguration('camera_x'),
+                '--y',     LaunchConfiguration('camera_y'),
+                '--z',     LaunchConfiguration('camera_z'),
                 '--roll',  '0.0',
                 '--pitch', '0.0',
                 '--yaw',   '0.0',
@@ -83,15 +72,17 @@ def generate_launch_description():
 
         # Camera TF: camera_link → camera_optical_link
 
+        # camera_optical_link = camera_link orientation (identity rotation).
+        # Tool0 Z points straight down toward the table, so Z_optical = Z_tool0 = down.
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             name='camera_optical_tf',
             arguments=[
                 '--x', '0', '--y', '0', '--z', '0',
-                '--roll',  '-1.5708',
+                '--roll',  '0.0',
                 '--pitch', '0.0',
-                '--yaw',   '-1.5708',
+                '--yaw',   '0.0',
                 '--frame-id',       'camera_link',
                 '--child-frame-id', 'camera_optical_link',
             ],
@@ -103,6 +94,7 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(vision_launch),
             launch_arguments={
                 'table_z': LaunchConfiguration('table_z'),
+                'cube_height': LaunchConfiguration('cube_height'),
             }.items(),
         ),
 
@@ -113,5 +105,14 @@ def generate_launch_description():
             launch_arguments={
                 'approach_height': LaunchConfiguration('approach_height'),
             }.items(),
+        ),
+
+        # Table collision geometry for MoveIt2
+        Node(
+            package='bringup_pkg',
+            executable='publish_table',
+            name='table_publisher',
+            output='screen',
+            parameters=[{'table_z': LaunchConfiguration('table_z')}],
         ),
     ])
