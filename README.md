@@ -42,10 +42,10 @@ sudo apt install ros-jazzy-ur-robot-driver ros-jazzy-ur-moveit-config
 sudo apt install ros-jazzy-cv-bridge ros-jazzy-image-transport python3-opencv
 ```
 
-**CycloneDDS** — edit `~/cyclone_dds.xml` and set the network interface:
-- `lo` — simulation / single-PC only
-- `wlp0s20f3` — WiFi to surface board
-- `enx782d7e140822` — USB-Ethernet direct to robot
+**CycloneDDS** - edit `~/cyclone_dds.xml` and set the network interface:
+- `lo` - simulation / single-PC only
+- `wlp0s20f3` - WiFi to surface board
+- `enx782d7e140822` - USB-Ethernet direct to robot
 
 Both machines must use the same `ROS_DOMAIN_ID` (set in `~/.bashrc`):
 ```bash
