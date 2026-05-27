@@ -12,8 +12,8 @@ import numpy as np
 # Each color entry: list of one or two [lower, upper] HSV bound pairs.
 # Red wraps around 180° in OpenCV HSV so it needs two ranges.
 DEFAULT_HSV = {
-    'red':   [([0,   60,  40], [10,  255, 255]),
-              ([170, 60,  40], [180, 255, 255])],
+    'red':   [([0,   120,  70], [10,  255, 255]),
+              ([170, 120,  70], [180, 255, 255])],
     'green': [([35,  80,   50], [85,  255, 255])],
     'blue':  [([100, 150,  50], [130, 255, 255])],
 }
@@ -81,7 +81,12 @@ class DetectionNode(Node):
         if self._K is not None and self._D is not None:
             frame = cv2.undistort(frame, self._K, self._D)
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        blurred = cv2.GaussianBlur(hsv, (5, 5), 0)
+        blurred = cv2.GaussianBlur(hsv, (9, 9), 0)
+
+        # Morphological kernels (built once, reused per color)
+        k_close  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+        k_open   = cv2.getStructuringElement(cv2.MORPH_RECT,    (3, 3))
+        k_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 
         detections = {}
         debug_frame = frame.copy()
@@ -91,10 +96,11 @@ class DetectionNode(Node):
             for lower, upper in ranges:
                 mask |= cv2.inRange(blurred, lower, upper)
 
-            # Morphological cleanup
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=2)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, kernel, iterations=1)
+            # Close first (fills holes in patchy colour regions), then open
+            # (removes small noise blobs), then dilate to grow the final blob.
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,  k_close,  iterations=2)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,   k_open,   iterations=1)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, k_dilate, iterations=1)
 
             contours, _ = cv2.findContours(
                 mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)

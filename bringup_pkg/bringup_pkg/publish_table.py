@@ -19,25 +19,26 @@ class TablePublisher(Node):
     def _build_msg(self):
         table_z = self.get_parameter('table_z').get_parameter_value().double_value
 
-        obj = CollisionObject()
-        obj.header.frame_id = 'base_link'
-        obj.id = 'table'
-        obj.operation = CollisionObject.ADD
+        table = CollisionObject()
+        table.header.frame_id = 'base_link'
+        table.id = 'table'
+        table.operation = CollisionObject.ADD
 
-        box = SolidPrimitive()
-        box.type = SolidPrimitive.BOX
-        box.dimensions = [2.0, 2.0, 0.05]
+        table_box = SolidPrimitive()
+        table_box.type = SolidPrimitive.BOX
+        table_box.dimensions = [2.0, 2.0, 1.0]   # 1 m thick — extends well below floor
 
-        pose = Pose()
-        pose.position.z = table_z - 0.085  # shifted down by box height (0.05) + 0.01 m clearance
-        pose.orientation.w = 1.0
+        table_pose = Pose()
+        # Top of box sits exactly at table_z; bottom is 1 m below.
+        table_pose.position.z = table_z - 0.5
+        table_pose.orientation.w = 1.0
 
-        obj.primitives.append(box)
-        obj.primitive_poses.append(pose)
+        table.primitives.append(table_box)
+        table.primitive_poses.append(table_pose)
 
         scene = PlanningScene()
         scene.is_diff = True
-        scene.world.collision_objects.append(obj)
+        scene.world.collision_objects.append(table)
         return scene
 
     def _publish(self):

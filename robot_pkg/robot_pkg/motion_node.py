@@ -25,7 +25,7 @@ JOINT_NAMES = [
 TRAJ_CONTROLLER = '/scaled_joint_trajectory_controller/follow_joint_trajectory'
 
 
-def _wait_for_future(future, timeout=15.0):
+def _wait_for_future(future, timeout=30.0):
     event = threading.Event()
     future.add_done_callback(lambda _: event.set())
     if future.done():
@@ -42,15 +42,20 @@ class MotionNode(Node):
         self.declare_parameter('home_joints',     [0.0, -1.5708, 1.5708, -1.5708, -1.5708, 0.0])
         self.declare_parameter('overview_joints', [0.0, -1.2, 1.0, -1.35, -1.5708, 0.0])
         self.declare_parameter('search_count', 3)
-        self.declare_parameter('search_joints_0', [0.3,  -1.2, 1.0, -1.35, -1.5708, 0.0])
-        self.declare_parameter('search_joints_1', [-0.3, -1.2, 1.0, -1.35, -1.5708, 0.0])
-        self.declare_parameter('search_joints_2', [0.0,  -1.0, 1.2, -1.5,  -1.5708, 0.0])
+        self.declare_parameter('search_joints_0', [0.3,   -1.2, 1.0, -1.35, -1.5708, 0.0])
+        self.declare_parameter('search_joints_1', [-0.3,  -1.2, 1.0, -1.35, -1.5708, 0.0])
+        self.declare_parameter('search_joints_2', [0.6,   -1.2, 1.0, -1.35, -1.5708, 0.0])
+        self.declare_parameter('search_joints_3', [-0.6,  -1.2, 1.0, -1.35, -1.5708, 0.0])
+        self.declare_parameter('search_joints_4', [0.0,   -1.0, 1.2, -1.5,  -1.5708, 0.0])
         self.declare_parameter('approach_height', 0.10)
         self.declare_parameter('approach_quat',   [1.0, 0.0, 0.0, 0.0])
         self.declare_parameter('group_name',   'ur_manipulator')
         self.declare_parameter('base_frame',   'base_link')
         self.declare_parameter('end_effector', 'tool0')
         self.declare_parameter('move_duration_sec', 6)
+        # Shoulder-pan joint limits (radians) — IK solutions outside this window are rejected.
+        self.declare_parameter('pan_min', -2.7)
+        self.declare_parameter('pan_max', -0.5)
 
         self._home_joints     = list(self.get_parameter('home_joints').value)
         self._overview_joints = list(self.get_parameter('overview_joints').value)
@@ -65,6 +70,8 @@ class MotionNode(Node):
         self._base_frame     = self.get_parameter('base_frame').value
         self._end_effector   = self.get_parameter('end_effector').value
         self._move_duration  = self.get_parameter('move_duration_sec').value
+        self._pan_min        = self.get_parameter('pan_min').value
+        self._pan_max        = self.get_parameter('pan_max').value
 
         self._cube_pos: dict[str, PointStamped | None] = {
             'red': None, 'green': None, 'blue': None
@@ -212,6 +219,14 @@ class MotionNode(Node):
         ))
         joints = [joint_map.get(n, 0.0) for n in JOINT_NAMES]
         self.get_logger().info(f'IK → {[round(j, 3) for j in joints]}')
+
+        pan = joints[0]  # shoulder_pan_joint
+        if not (self._pan_min <= pan <= self._pan_max):
+            self.get_logger().error(
+                f'IK pan={pan:.3f} rad outside allowed window '
+                f'[{self._pan_min}, {self._pan_max}] — rejecting')
+            return False
+
         return self._execute_joints(joints)
 
     def _approach_cube(self, color: str, res: Trigger.Response) -> Trigger.Response:

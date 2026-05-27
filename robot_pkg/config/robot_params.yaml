@@ -3,10 +3,17 @@ motion_node:
     home_joints: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]
     overview_joints: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]
 
-    search_joints_0: [-1.45, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan right
-    search_joints_1: [-2.05, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan left
-    search_joints_2: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819] # back to centre
-    search_count: 3
+    search_joints_0: [-1.45,  -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan right
+    search_joints_1: [-2.05,  -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan left
+    search_joints_2: [-1.15,  -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan right more
+    search_joints_3: [-2.35,  -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # pan left more
+    search_joints_4: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # centre (fallback)
+    search_count: 5
+
+    # Shoulder-pan limits (radians) — IK solutions outside this window are rejected.
+    # Home/overview/search are ~-1.75 rad; search extremes reach -1.15 and -2.35.
+    pan_min: -2.7
+    pan_max: -0.5
 
     # Fallback motion duration when joint-delta calculation is unavailable (seconds)
     move_duration_sec: 6
@@ -26,5 +33,5 @@ motion_node:
 coordinator_node:
   ros__parameters:
     detection_timeout: 5.0
-    search_timeout: 4.0
-    search_count: 3
+    search_timeout: 5.0
+    search_count: 5

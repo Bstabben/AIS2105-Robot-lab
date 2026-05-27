@@ -12,15 +12,15 @@ detection_node:
     hsv:
       red:
         range0:
-          lower: [0,   60,  40]
+          lower: [0,   120,  70]
           upper: [10,  255, 255]
         range1:
-          lower: [170, 60,  40]
+          lower: [170, 120,  70]
           upper: [180, 255, 255]
       green:
         range0:
-          lower: [35,  80,  50]
-          upper: [85, 255, 255]
+          lower: [35,  80,   50]
+          upper: [85,  255, 255]
       blue:
         range0:
           lower: [100, 150,  50]
