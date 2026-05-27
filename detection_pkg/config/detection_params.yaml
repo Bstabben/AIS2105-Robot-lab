@@ -1,11 +1,11 @@
 # HSV colour ranges for cube detection.
-# Values are [H, S, V]: H 0-180, S 0-255, V 0-255 (OpenCV convention).
-# Red wraps around 0°/180° in OpenCV HSV, so it uses two ranges.
+# Values are [H, S, V]: H 0-180, S 0-255, V 0-255 (OpenCV).
+# Red wraps around 0/180 in OpenCV HSV, so it uses two ranges.
 
 detection_node:
   ros__parameters:
-    min_contour_area: 500        # px², smaller blobs are ignored
-    publish_debug_image: true    # publish annotated image on vision/debug_image
+    min_contour_area: 500        # px^2, smaller blobs are ignored
+    publish_debug_image: true    # publish image on vision/debug_image
 
     hsv:
       red:

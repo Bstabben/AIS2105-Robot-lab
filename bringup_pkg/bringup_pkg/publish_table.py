@@ -12,7 +12,7 @@ class TablePublisher(Node):
         self.declare_parameter('table_z', 0.047)
         self._pub = self.create_publisher(PlanningScene, '/planning_scene', 10)
         self._msg = self._build_msg()
-        # Publish immediately, then every 10 s so the table survives a MoveIt2 restart
+        # Publish immediately, then every 10s
         self.create_timer(10.0, self._publish)
         self._publish()
 
@@ -26,10 +26,10 @@ class TablePublisher(Node):
 
         table_box = SolidPrimitive()
         table_box.type = SolidPrimitive.BOX
-        table_box.dimensions = [2.0, 2.0, 1.0]   # 1 m thick — extends well below floor
+        table_box.dimensions = [2.0, 2.0, 1.0]   # 1m thick, extends below floor
 
         table_pose = Pose()
-        # Top of box sits exactly at table_z; bottom is 1 m below.
+        # Top of box sits exactly at table_z: bottom is 1 m below.
         table_pose.position.z = table_z - 0.5
         table_pose.orientation.w = 1.0
 

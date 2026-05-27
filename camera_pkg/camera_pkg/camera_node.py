@@ -22,7 +22,7 @@ def _find_usb_camera() -> str:
                 cap.release()
                 return path
 
-    # Fall back to /dev/video* , skip index 0 which is usually the integrated webcam
+    # Fall back to /dev/video* , skip index 0 (integrated webcam)
     for i in range(10):
         path = f'/dev/video{i}'
         if not os.path.exists(path):

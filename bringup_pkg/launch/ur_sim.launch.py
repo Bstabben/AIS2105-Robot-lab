@@ -1,7 +1,7 @@
 """
-Simulation launch: UR robot + MoveIt2 with no real hardware.
-Uses ur_rsp for robot description and a minimal ros2_control setup
-that avoids the UR-specific GPIO controllers which crash on mock hardware.
+Simulation launch: UR robot + MoveIt2 without hardware.
+Uses ur_rsp for robot description and a ros2_control setup
+that avoids the UR-specific GPIO controllers
 
 Usage:
     ros2 launch bringup_pkg ur_sim.launch.py [ur_type:=ur5e]
@@ -44,12 +44,12 @@ def generate_launch_description():
             ur_rsp_launch,
             launch_arguments={
                 'ur_type': LaunchConfiguration('ur_type'),
-                'robot_ip': '192.168.0.1',  # dummy — not used with mock hardware
+                'robot_ip': '192.168.0.1',  # dummy
                 'use_mock_hardware': 'true',
             }.items(),
         ),
 
-        # ros2_control with mock hardware + only generic controllers (no UR GPIO)
+        # ros2_control + generic controllers
         Node(
             package='controller_manager',
             executable='ros2_control_node',
@@ -73,7 +73,7 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # Trajectory controller — MoveIt2 uses this to execute plans
+        # Trajectory controller to execute plans with MoveIt2
         Node(
             package='controller_manager',
             executable='spawner',

@@ -53,11 +53,11 @@ class MotionNode(Node):
         self.declare_parameter('base_frame',   'base_link')
         self.declare_parameter('end_effector', 'tool0')
         self.declare_parameter('move_duration_sec', 6)
-        # Joint limits (radians) — IK solutions outside these windows are rejected.
+        # Joint limits (radians). IK solutions outside these windows are rejected.
         self.declare_parameter('pan_min',  -2.7)
         self.declare_parameter('pan_max',  -0.5)
         self.declare_parameter('lift_min', -2.5)
-        self.declare_parameter('lift_max', -1.7)  # overview position — cannot go more upright
+        self.declare_parameter('lift_max', -1.7)  # overview position. cannot go more upright
 
         self._home_joints     = list(self.get_parameter('home_joints').value)
         self._overview_joints = list(self.get_parameter('overview_joints').value)

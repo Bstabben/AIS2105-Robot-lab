@@ -43,16 +43,15 @@ _WAITING_STATES = {State.WAITING_RED, State.WAITING_GREEN, State.WAITING_BLUE}
 
 class CoordinatorNode(Node):
     """
-    State machine that orchestrates the full cube-pointing task.
+    State machine for the full cube-pointing task.
 
     The sequence starts by calling the /robot/start service (std_srvs/Trigger).
 
     If a cube is not detected within detection_timeout seconds, the robot tries
-    each search position in turn.  After all search positions are exhausted it
+    each search position in turn.  After all search positions are used it
     enters ALERT and stops.
 
     3D position updates are only accepted while the robot is stationary
-    (WAITING_* states or after arriving at a search position).
     """
 
     def __init__(self):
@@ -72,7 +71,7 @@ class CoordinatorNode(Node):
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
 
         self._state               = State.IDLE
-        self._pending             = None        # current async service future
+        self._pending             = None
         self._detections          = {}          # latest vision/detections payload
         self._has_3d              = {c: False for c in CUBE_COLORS}
         self._wait_start          = 0.0
@@ -111,7 +110,7 @@ class CoordinatorNode(Node):
         self.create_service(
             Trigger, 'robot/start', self._start_cb, callback_group=cb)
 
-        # State machine timer (ticks at 10 Hz)
+        # State machine timer (10 Hz)
         self._timer = self.create_timer(0.1, self._tick, callback_group=cb)
 
         self.get_logger().info('Coordinator ready — call /robot/start to begin')
@@ -178,7 +177,7 @@ class CoordinatorNode(Node):
         self._state = new_state
         self._pending = None
         self._search_arrived = False
-        # Accept detections only in stationary waiting states;
+        # Accept detections only in stationary waiting states.
         # SEARCHING manages its own flag once the robot arrives.
         self._accepting_detections = new_state in _WAITING_STATES
 
@@ -323,7 +322,7 @@ class CoordinatorNode(Node):
                         f'Arrived at search position {self._search_idx} — '
                         f'dwelling {self._search_timeout:.0f} s')
             else:
-                # Phase 2: stationary dwell — wait for detection or timeout
+                # Phase 2: wait for detection or timeout
                 if self._has_3d[self._missing_color]:
                     self.get_logger().info(
                         f'Got 3D position for {self._missing_color} at search '

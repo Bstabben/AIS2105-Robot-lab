@@ -80,7 +80,7 @@ class TransformNode(Node):
         )
 
         self.get_logger().info('Waiting for TF to stabilize...')
-        sleep(1.0)  # Give UR driver time to publish base_link→tool0
+        sleep(1.0)  # Give UR driver time to publish base_link -> tool0
 
     def _camera_info_callback(self, msg: CameraInfo):
         if self._fx is not None:

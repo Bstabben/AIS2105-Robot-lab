@@ -10,11 +10,11 @@ motion_node:
     search_joints_4: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # centre (fallback)
     search_count: 5
 
-    # Joint limits (radians) — IK solutions outside these windows are rejected.
-    # Pan: home/overview ~-1.75; search extremes -1.15 and -2.35.
+    # Joint limits (radians). IK solutions outside these windows are rejected.
+    # Pan: home/overview -1.75; search extremes -1.15 and -2.35.
     pan_min:  -2.7
     pan_max:  -0.5
-    # Lift: overview position is -1.7426 — cannot go more upright than that.
+    # Lift: overview position is -1.7426. Cannot go more upright than that.
     lift_min: -2.5
     lift_max: -1.7
 
@@ -25,7 +25,7 @@ motion_node:
     approach_height: 0.10
 
     # Tool orientation when pointing at a cube (quaternion xyzw, tool pointing down).
-    # Default assumes tool0 Z-axis points away from flange — adjust if needed.
+    # Default assumes tool0 Z-axis points away from flange. Adjust if needed.
     approach_quat: [1.0, 0.0, 0.0, 0.0]
 
     # MoveIt2 / robot config

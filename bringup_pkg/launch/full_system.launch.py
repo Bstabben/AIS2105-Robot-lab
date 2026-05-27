@@ -50,7 +50,7 @@ def generate_launch_description():
             description='Camera offset from tool0 along Z in metres — lens is 8.5 cm from flange centre',
         ),
 
-        # Camera TF: tool0 → camera_link
+        # Camera TF: tool0 -> camera_link
         # x, y, z describe where the camera sits relative to tool0 on the arm.
 
 
@@ -70,9 +70,9 @@ def generate_launch_description():
             ],
         ),
 
-        # Camera TF: camera_link → camera_optical_link
+        # Camera TF: camera_link -> camera_optical_link
 
-        # camera_optical_link = camera_link orientation (identity rotation).
+        # camera_optical_link = camera_link orientation
         # Tool0 Z points straight down toward the table, so Z_optical = Z_tool0 = down.
         Node(
             package='tf2_ros',

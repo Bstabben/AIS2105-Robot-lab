@@ -10,8 +10,8 @@ import cv2
 import numpy as np
 
 
-# HSV ranges — each entry is a (lower, upper) pair.
-# Values are [H, S, V]: H 0-180, S 0-255, V 0-255 (OpenCV convention).
+# HSV ranges: each entry is a (lower, upper) pair.
+# Values are [H, S, V]: H 0-180, S 0-255, V 0-255 (OpenCV).
 DEFAULT_HSV = {
     'red':   [([  0,  60,  40], [ 10, 255, 255]),
               ([170,  60,  40], [180, 255, 255])],
@@ -47,14 +47,14 @@ class DetectionNode(Node):
 
         self._bridge = CvBridge()
 
-        # Blob detector — more stable than raw contours for compact colour regions
+        # Blob detector
         params = cv2.SimpleBlobDetector_Params()
         params.filterByArea = True
         params.minArea = float(self._min_area)
         params.maxArea = 50000.0
-        params.filterByCircularity = False   # cubes are not circular
+        params.filterByCircularity = False
         params.filterByConvexity = True
-        params.minConvexity = 0.6            # rejects fragmented / L-shaped noise
+        params.minConvexity = 0.6
         params.filterByInertia = False
         self._blob_detector = cv2.SimpleBlobDetector_create(params)
 
@@ -93,9 +93,8 @@ class DetectionNode(Node):
         if self._K is not None and self._D is not None:
             frame = cv2.undistort(frame, self._K, self._D)
 
-        # Blur in BGR space BEFORE converting to HSV — avoids hue wrapping
-        # artefacts that occur when blurring the H channel directly (especially
-        # bad for red, which sits at the 0°/180° boundary).
+        # Blur in BGR space BEFORE converting to HSV
+
         blurred_bgr = cv2.GaussianBlur(frame, (9, 9), 0)
         hsv = cv2.cvtColor(blurred_bgr, cv2.COLOR_BGR2HSV)
 
@@ -114,7 +113,7 @@ class DetectionNode(Node):
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k_open,  iterations=1)
             mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_close, iterations=2)
 
-            # Blob detector expects dark blobs on white — invert the mask
+            # Blob detector expects dark blobs on white. Invert the mask
             keypoints = self._blob_detector.detect(cv2.bitwise_not(mask))
 
             if keypoints:
