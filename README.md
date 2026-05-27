@@ -14,7 +14,7 @@ USB camera → camera_node → detection_node → transform_node → coordinator
 |---|---|---|
 | `bringup_pkg` | launch files, `publish_table` | Starts the full system; publishes table collision object to MoveIt2 |
 | `camera_pkg` | `camera_node` | Opens USB camera, publishes raw images and CameraInfo |
-| `camera_pkg` | `transform_node` | Converts pixel detections to 3D positions via ray–plane intersection |
+| `camera_pkg` | `transform_node` | Converts pixel detections to 3D positions via ray-plane intersection |
 | `detection_pkg` | `detection_node` | HSV colour detection, blob detection, publishes 2D centroids |
 | `robot_pkg` | `coordinator_node` | State machine orchestrating the full task sequence |
 | `robot_pkg` | `motion_node` | IK solving via MoveIt2 `/compute_ik`, trajectory execution via `FollowJointTrajectory` action |
