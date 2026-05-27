@@ -1,4 +1,4 @@
-# UR5e Cube Detection and Pointing — AIS2105
+# UR5e Cube Detection and Pointing - AIS2105
 
 ROS2 (Jazzy) system for a UR5e robot arm that uses a wrist-mounted USB camera to detect red, green and blue cubes on a table and point at each in sequence.
 
@@ -71,28 +71,28 @@ colcon build --packages-select detection_pkg && source install/setup.bash
 
 ## Running
 
-### Split setup — surface board + this PC
+### Split setup - surface board + this PC
 
-**Surface board — Terminal 1** (robot driver + MoveIt2)
+**Surface board - Terminal 1** (robot driver + MoveIt2)
 ```bash
 source ~/ros2_ws/install/setup.bash
 ros2 launch bringup_pkg ur_moveit_with_table.launch.py robot_ip:=143.25.151.38
 ```
 Wait until MoveIt2 reports ready and joint states are publishing.
 
-**This PC — Terminal 1** (camera + detection + motion + coordinator)
+**This PC - Terminal 1** (camera + detection + motion + coordinator)
 ```bash
 source ~/ros2_ws/install/setup.bash
 ros2 launch bringup_pkg full_system.launch.py
 ```
 
-**This PC — Terminal 2** (trigger once everything is up)
+**This PC - Terminal 2** (trigger once everything is up)
 ```bash
 source ~/ros2_ws/install/setup.bash
 ros2 service call /robot/start std_srvs/srv/Trigger {}
 ```
 
-### Simulation — no robot needed
+### Simulation - no robot needed
 
 **Terminal 1**
 ```bash
@@ -110,12 +110,12 @@ ros2 launch bringup_pkg full_system.launch.py
 
 ## Launch arguments
 
-All arguments are optional — defaults are shown.
+All arguments are optional - defaults are shown.
 
 ```bash
 ros2 launch bringup_pkg full_system.launch.py \
   table_z:=0.047 \          # table surface height in base_link (metres)
-  cube_height:=0.10 \       # cube height (metres) — ray intersects at table_z + cube_height
+  cube_height:=0.10 \       # cube height (metres) - ray intersects at table_z + cube_height
   approach_height:=0.05 \   # distance above cube top to stop at (metres)
   camera_x:=0.01 \          # camera offset from tool0 along X (metres)
   camera_y:=0.01 \          # camera offset from tool0 along Y (metres)
@@ -134,25 +134,25 @@ IDLE → MOVING_HOME → MOVING_OVERVIEW → WAITING_TF
      → DONE
 ```
 
-If a cube is not detected within `detection_timeout` (5 s), the robot searches up to 5 positions. Each search position dwells for `search_timeout` (5 s) with detection open. If the cube is still not found after all positions, the system enters `ALERT` and stops.
+If a cube is not detected within `detection_timeout` (5s), the robot searches up to 5 positions. Each search position dwells for `search_timeout` (5 s) with detection open. If the cube is still not found after all positions, the system enters `ALERT` and stops.
 
 ---
 
 ## Colour tuning (camera only, no robot needed)
 
 ```bash
-# Terminal 1 — camera
+# Terminal 1 - camera
 ros2 run camera_pkg camera_node
 
-# Terminal 2 — detection
+# Terminal 2 - detection
 ros2 run detection_pkg detection_node --ros-args \
   --params-file ~/ros2_ws/src/ur_project/detection_pkg/config/detection_params.yaml
 
-# Terminal 3 — viewer
+# Terminal 3 - viewer
 QT_QPA_PLATFORM=xcb ros2 run rqt_image_view rqt_image_view
 # Select /vision/debug_image from the dropdown
 
-# Terminal 4 — check detections
+# Terminal 4 - check detections
 ros2 topic echo /vision/detections
 ```
 
