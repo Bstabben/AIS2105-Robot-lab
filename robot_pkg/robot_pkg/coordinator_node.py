@@ -14,22 +14,25 @@ import tf2_ros
 
 
 class State(Enum):
-    IDLE               = auto()
-    MOVING_HOME        = auto()
-    MOVING_OVERVIEW    = auto()
-    WAITING_TF         = auto()
-    WAITING_RED        = auto()
-    MOVING_RED         = auto()
-    HOMING_AFTER_RED   = auto()
-    WAITING_GREEN      = auto()
-    MOVING_GREEN       = auto()
-    HOMING_AFTER_GREEN = auto()
-    WAITING_BLUE       = auto()
-    MOVING_BLUE        = auto()
-    HOMING_AFTER_BLUE  = auto()
-    SEARCHING          = auto()
-    ALERT              = auto()
-    DONE               = auto()
+    IDLE                = auto()
+    MOVING_HOME         = auto()
+    MOVING_OVERVIEW     = auto()
+    WAITING_TF          = auto()
+    WAITING_RED         = auto()
+    HOMING_BEFORE_RED   = auto()
+    MOVING_RED          = auto()
+    HOMING_AFTER_RED    = auto()
+    WAITING_GREEN       = auto()
+    HOMING_BEFORE_GREEN = auto()
+    MOVING_GREEN        = auto()
+    HOMING_AFTER_GREEN  = auto()
+    WAITING_BLUE        = auto()
+    HOMING_BEFORE_BLUE  = auto()
+    MOVING_BLUE         = auto()
+    HOMING_AFTER_BLUE   = auto()
+    SEARCHING           = auto()
+    ALERT               = auto()
+    DONE                = auto()
 
 
 CUBE_COLORS = ('red', 'green', 'blue')
@@ -214,14 +217,19 @@ class CoordinatorNode(Node):
 
         elif s == State.WAITING_RED:
             if self._has_3d['red']:
-                self._transition(State.MOVING_RED)
-                self._call('red')
+                self._transition(State.HOMING_BEFORE_RED)
+                self._call('home')
             elif self._elapsed() > self._detection_timeout:
                 self._missing_color = 'red'
                 self.get_logger().warning('Timeout — no 3D position for red — starting search')
                 self._search_idx = 0
                 self._transition(State.SEARCHING)
                 self._call(f'search_{self._search_idx}')
+
+        elif s == State.HOMING_BEFORE_RED:
+            if self._pending_done():
+                self._transition(State.MOVING_RED)
+                self._call('red')
 
         elif s == State.MOVING_RED:
             if self._pending_done():
@@ -242,14 +250,19 @@ class CoordinatorNode(Node):
 
         elif s == State.WAITING_GREEN:
             if self._has_3d['green']:
-                self._transition(State.MOVING_GREEN)
-                self._call('green')
+                self._transition(State.HOMING_BEFORE_GREEN)
+                self._call('home')
             elif self._elapsed() > self._detection_timeout:
                 self._missing_color = 'green'
                 self.get_logger().warning('Timeout — no 3D position for green — starting search')
                 self._search_idx = 0
                 self._transition(State.SEARCHING)
                 self._call(f'search_{self._search_idx}')
+
+        elif s == State.HOMING_BEFORE_GREEN:
+            if self._pending_done():
+                self._transition(State.MOVING_GREEN)
+                self._call('green')
 
         elif s == State.MOVING_GREEN:
             if self._pending_done():
@@ -270,14 +283,19 @@ class CoordinatorNode(Node):
 
         elif s == State.WAITING_BLUE:
             if self._has_3d['blue']:
-                self._transition(State.MOVING_BLUE)
-                self._call('blue')
+                self._transition(State.HOMING_BEFORE_BLUE)
+                self._call('home')
             elif self._elapsed() > self._detection_timeout:
                 self._missing_color = 'blue'
                 self.get_logger().warning('Timeout — no 3D position for blue — starting search')
                 self._search_idx = 0
                 self._transition(State.SEARCHING)
                 self._call(f'search_{self._search_idx}')
+
+        elif s == State.HOMING_BEFORE_BLUE:
+            if self._pending_done():
+                self._transition(State.MOVING_BLUE)
+                self._call('blue')
 
         elif s == State.MOVING_BLUE:
             if self._pending_done():
@@ -309,14 +327,14 @@ class CoordinatorNode(Node):
                 if self._has_3d[self._missing_color]:
                     self.get_logger().info(
                         f'Got 3D position for {self._missing_color} at search '
-                        f'position {self._search_idx}')
+                        f'position {self._search_idx} — homing before approach')
                     color_states = {
-                        'red':   State.MOVING_RED,
-                        'green': State.MOVING_GREEN,
-                        'blue':  State.MOVING_BLUE,
+                        'red':   State.HOMING_BEFORE_RED,
+                        'green': State.HOMING_BEFORE_GREEN,
+                        'blue':  State.HOMING_BEFORE_BLUE,
                     }
                     self._transition(color_states[self._missing_color])
-                    self._call(self._missing_color)
+                    self._call('home')
                 elif self._elapsed() > self._search_timeout:
                     self._search_idx += 1
                     if self._search_idx >= self._search_count:

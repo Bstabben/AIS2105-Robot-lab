@@ -26,12 +26,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'cube_height',
-            default_value='0.10',
+            default_value='0.05',
             description='Height of cubes in metres. Ray intersects at table_z + cube_height.',
         ),
         DeclareLaunchArgument(
             'approach_height',
-            default_value='0.05',
+            default_value='0.01',
             description='Distance above cube surface to stop at (metres)',
         ),
         DeclareLaunchArgument(

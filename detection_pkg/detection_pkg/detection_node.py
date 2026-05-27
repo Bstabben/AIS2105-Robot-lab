@@ -47,6 +47,17 @@ class DetectionNode(Node):
 
         self._bridge = CvBridge()
 
+        # Blob detector — more stable than raw contours for compact colour regions
+        params = cv2.SimpleBlobDetector_Params()
+        params.filterByArea = True
+        params.minArea = float(self._min_area)
+        params.maxArea = 50000.0
+        params.filterByCircularity = False   # cubes are not circular
+        params.filterByConvexity = True
+        params.minConvexity = 0.6            # rejects fragmented / L-shaped noise
+        params.filterByInertia = False
+        self._blob_detector = cv2.SimpleBlobDetector_create(params)
+
         self._sub_info = self.create_subscription(
             CameraInfo, 'camera/camera_info', self._camera_info_cb, 1)
         self._sub = self.create_subscription(
@@ -82,13 +93,15 @@ class DetectionNode(Node):
         if self._K is not None and self._D is not None:
             frame = cv2.undistort(frame, self._K, self._D)
 
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        blurred = cv2.GaussianBlur(hsv, (9, 9), 0)
+        # Blur in BGR space BEFORE converting to HSV — avoids hue wrapping
+        # artefacts that occur when blurring the H channel directly (especially
+        # bad for red, which sits at the 0°/180° boundary).
+        blurred_bgr = cv2.GaussianBlur(frame, (9, 9), 0)
+        hsv = cv2.cvtColor(blurred_bgr, cv2.COLOR_BGR2HSV)
 
-        # Morphological kernels (built once, reused per color)
-        k_close  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
-        k_open   = cv2.getStructuringElement(cv2.MORPH_RECT,    (3, 3))
-        k_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        # Morphological kernels
+        k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+        k_open  = cv2.getStructuringElement(cv2.MORPH_RECT,    (3, 3))
 
         detections = {}
         debug_frame = frame.copy()
@@ -96,31 +109,24 @@ class DetectionNode(Node):
         for color, ranges in self._hsv.items():
             mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
             for lower, upper in ranges:
-                mask |= cv2.inRange(blurred, lower, upper)
+                mask |= cv2.inRange(hsv, lower, upper)
 
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,  k_close,  iterations=2)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,   k_open,   iterations=1)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, k_dilate, iterations=1)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k_open,  iterations=1)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_close, iterations=2)
 
-            contours, _ = cv2.findContours(
-                mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Blob detector expects dark blobs on white — invert the mask
+            keypoints = self._blob_detector.detect(cv2.bitwise_not(mask))
 
-            best = None
-            best_area = self._min_area
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-                if area > best_area:
-                    best_area = area
-                    best = cnt
-
-            if best is not None:
-                x, y, w, h = cv2.boundingRect(best)
-                cx = int(x + w / 2)
-                cy = int(y + h / 2)
+            if keypoints:
+                # Pick the largest blob
+                best = max(keypoints, key=lambda k: k.size)
+                cx = int(best.pt[0])
+                cy = int(best.pt[1])
+                r  = int(best.size / 2)
                 detections[color] = {
                     'center_px': [cx, cy],
-                    'bbox_px':   [x, y, w, h],
-                    'area_px2':  int(best_area),
+                    'bbox_px':   [cx - r, cy - r, r * 2, r * 2],
+                    'area_px2':  int(np.pi * r * r),
                 }
 
                 pt = PointStamped()
@@ -134,9 +140,9 @@ class DetectionNode(Node):
                     color_bgr = {'red': (0, 0, 255),
                                  'green': (0, 255, 0),
                                  'blue': (255, 0, 0)}[color]
-                    cv2.rectangle(debug_frame, (x, y), (x + w, y + h), color_bgr, 2)
-                    cv2.circle(debug_frame, (cx, cy), 5, color_bgr, -1)
-                    cv2.putText(debug_frame, color, (x, y - 8),
+                    cv2.circle(debug_frame, (cx, cy), max(r, 5), color_bgr, 2)
+                    cv2.circle(debug_frame, (cx, cy), 4, color_bgr, -1)
+                    cv2.putText(debug_frame, color, (cx - r, cy - r - 8),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, color_bgr, 2)
 
         payload = {
