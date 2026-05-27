@@ -12,11 +12,10 @@ import numpy as np
 
 # HSV ranges — each entry is a (lower, upper) pair.
 # Values are [H, S, V]: H 0-180, S 0-255, V 0-255 (OpenCV convention).
-# Red wraps around 0°/180° so it uses two ranges.
 DEFAULT_HSV = {
-    'red':   [([  0, 120,  70], [ 10, 255, 255]),
-              ([170, 120,  70], [180, 255, 255])],
-    'green': [([35,   80,  50], [ 85, 255, 255])],
+    'red':   [([  0,  60,  40], [ 10, 255, 255]),
+              ([170,  60,  40], [180, 255, 255])],
+    'green': [([ 35,  80,  50], [ 85, 255, 255])],
     'blue':  [([100, 150,  50], [130, 255, 255])],
 }
 
@@ -25,7 +24,6 @@ class DetectionNode(Node):
     def __init__(self):
         super().__init__('detection_node')
 
-        # HSV parameters (declared per color so they are tunable via yaml)
         self._hsv = {}
         for color, ranges in DEFAULT_HSV.items():
             bounds = []
