@@ -1,6 +1,7 @@
 import json
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import String
 from geometry_msgs.msg import PointStamped
@@ -9,12 +10,14 @@ import cv2
 import numpy as np
 
 
-# RGB ranges — each entry is a single [lower, upper] pair.
-# Values are [R, G, B], each 0-255.
-DEFAULT_RGB = {
-    'red':   [([150,   0,   0], [255, 100, 100])],
-    'green': [([  0,  80,   0], [120, 255, 120])],
-    'blue':  [([  0,   0,  90], [120, 120, 255])],
+# HSV ranges — each entry is a (lower, upper) pair.
+# Values are [H, S, V]: H 0-180, S 0-255, V 0-255 (OpenCV convention).
+# Red wraps around 0°/180° so it uses two ranges.
+DEFAULT_HSV = {
+    'red':   [([  0, 120,  70], [ 10, 255, 255]),
+              ([170, 120,  70], [180, 255, 255])],
+    'green': [([35,   80,  50], [ 85, 255, 255])],
+    'blue':  [([100, 150,  50], [130, 255, 255])],
 }
 
 
@@ -22,18 +25,18 @@ class DetectionNode(Node):
     def __init__(self):
         super().__init__('detection_node')
 
-        # RGB parameters (declared per color so they are tunable via yaml)
-        self._rgb = {}
-        for color, ranges in DEFAULT_RGB.items():
+        # HSV parameters (declared per color so they are tunable via yaml)
+        self._hsv = {}
+        for color, ranges in DEFAULT_HSV.items():
             bounds = []
             for i, (lo, hi) in enumerate(ranges):
-                self.declare_parameter(f'rgb.{color}.range{i}.lower', lo)
-                self.declare_parameter(f'rgb.{color}.range{i}.upper', hi)
-                lower = self.get_parameter(f'rgb.{color}.range{i}.lower').value
-                upper = self.get_parameter(f'rgb.{color}.range{i}.upper').value
+                self.declare_parameter(f'hsv.{color}.range{i}.lower', lo)
+                self.declare_parameter(f'hsv.{color}.range{i}.upper', hi)
+                lower = self.get_parameter(f'hsv.{color}.range{i}.lower').value
+                upper = self.get_parameter(f'hsv.{color}.range{i}.upper').value
                 bounds.append((np.array(lower, dtype=np.uint8),
                                 np.array(upper, dtype=np.uint8)))
-            self._rgb[color] = bounds
+            self._hsv[color] = bounds
 
         self.declare_parameter('min_contour_area', 500)
         self.declare_parameter('publish_debug_image', True)
@@ -54,10 +57,12 @@ class DetectionNode(Node):
 
         self._pub_position = {
             color: self.create_publisher(PointStamped, f'vision/{color}_position', 10)
-            for color in DEFAULT_RGB
+            for color in DEFAULT_HSV
         }
 
-        self._pub_debug = self.create_publisher(Image, 'vision/debug_image', 10)
+        # Use sensor-data QoS so rqt_image_view and image_tools can subscribe
+        self._pub_debug = self.create_publisher(
+            Image, 'vision/debug_image', qos_profile_sensor_data)
 
         self.get_logger().info('Detection node started')
 
@@ -79,8 +84,8 @@ class DetectionNode(Node):
         if self._K is not None and self._D is not None:
             frame = cv2.undistort(frame, self._K, self._D)
 
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        blurred = cv2.GaussianBlur(rgb, (9, 9), 0)
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        blurred = cv2.GaussianBlur(hsv, (9, 9), 0)
 
         # Morphological kernels (built once, reused per color)
         k_close  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
@@ -90,8 +95,8 @@ class DetectionNode(Node):
         detections = {}
         debug_frame = frame.copy()
 
-        for color, ranges in self._rgb.items():
-            mask = np.zeros(rgb.shape[:2], dtype=np.uint8)
+        for color, ranges in self._hsv.items():
+            mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
             for lower, upper in ranges:
                 mask |= cv2.inRange(blurred, lower, upper)
 

@@ -1,29 +1,25 @@
-# RGB colour ranges for cube detection.
-# Values are [R, G, B], each 0-255.
-# Use any colour picker to sample the cube colour, then build a window around it.
+# HSV colour ranges for cube detection.
+# Values are [H, S, V]: H 0-180, S 0-255, V 0-255 (OpenCV convention).
+# Red wraps around 0°/180° in OpenCV HSV, so it uses two ranges.
 
 detection_node:
   ros__parameters:
     min_contour_area: 500        # px², smaller blobs are ignored
     publish_debug_image: true    # publish annotated image on vision/debug_image
 
-    rgb:
+    hsv:
       red:
         range0:
-          lower: [150,   0,   0]
-          upper: [255, 100, 100]
-      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      # KNOWN BUG: these ranges are too wide — the table surface is falsely
-      # detected as both green and blue under current lab lighting.
-      # Tightening the non-dominant channel ceilings below 120 kills detection
-      # of the washed cubes.  This needs proper per-lighting calibration or a
-      # switch back to HSV before the next real run.
-      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          lower: [  0, 120,  70]
+          upper: [ 10, 255, 255]
+        range1:
+          lower: [170, 120,  70]
+          upper: [180, 255, 255]
       green:
         range0:
-          lower: [  0,  80,   0]
-          upper: [120, 255, 120]
+          lower: [ 35,  80,  50]
+          upper: [ 85, 255, 255]
       blue:
         range0:
-          lower: [  0,   0,  90]
-          upper: [120, 120, 255]
+          lower: [100, 150,  50]
+          upper: [130, 255, 255]
