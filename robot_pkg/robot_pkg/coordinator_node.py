@@ -3,18 +3,21 @@ import time
 from enum import Enum, auto
 
 import rclpy
+import rclpy.time
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from geometry_msgs.msg import PointStamped
+import tf2_ros
 
 
 class State(Enum):
     IDLE               = auto()
     MOVING_HOME        = auto()
     MOVING_OVERVIEW    = auto()
+    WAITING_TF         = auto()
     WAITING_RED        = auto()
     MOVING_RED         = auto()
     HOMING_AFTER_RED   = auto()
@@ -55,10 +58,15 @@ class CoordinatorNode(Node):
         self.declare_parameter('detection_timeout', 5.0)
         self.declare_parameter('search_timeout',    5.0)
         self.declare_parameter('search_count',      3)
+        self.declare_parameter('tf_timeout',        60.0)
 
         self._detection_timeout = self.get_parameter('detection_timeout').value
         self._search_timeout    = self.get_parameter('search_timeout').value
         self._search_count      = self.get_parameter('search_count').value
+        self._tf_timeout        = self.get_parameter('tf_timeout').value
+
+        self._tf_buffer   = tf2_ros.Buffer()
+        self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
 
         self._state               = State.IDLE
         self._pending             = None        # current async service future
@@ -184,9 +192,25 @@ class CoordinatorNode(Node):
 
         elif s == State.MOVING_OVERVIEW:
             if self._pending_done():
+                self._transition(State.WAITING_TF)
+                self._start_timer()
+
+        elif s == State.WAITING_TF:
+            try:
+                self._tf_buffer.lookup_transform(
+                    'base_link', 'camera_optical_link', rclpy.time.Time())
+                self.get_logger().info(
+                    f'TF ready after {self._elapsed():.1f} s — starting detection')
                 self._has_3d['red'] = False
                 self._transition(State.WAITING_RED)
                 self._start_timer()
+            except tf2_ros.LookupException:
+                if self._elapsed() > self._tf_timeout:
+                    self.get_logger().warning(
+                        f'TF not ready after {self._tf_timeout:.0f} s — starting anyway')
+                    self._has_3d['red'] = False
+                    self._transition(State.WAITING_RED)
+                    self._start_timer()
 
         elif s == State.WAITING_RED:
             if self._has_3d['red']:

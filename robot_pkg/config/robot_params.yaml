@@ -10,10 +10,13 @@ motion_node:
     search_joints_4: [-1.7462, -1.7426, -0.7181, -2.2322, -4.7066, 0.5819]  # centre (fallback)
     search_count: 5
 
-    # Shoulder-pan limits (radians) — IK solutions outside this window are rejected.
-    # Home/overview/search are ~-1.75 rad; search extremes reach -1.15 and -2.35.
-    pan_min: -2.7
-    pan_max: -0.5
+    # Joint limits (radians) — IK solutions outside these windows are rejected.
+    # Pan: home/overview ~-1.75; search extremes -1.15 and -2.35.
+    pan_min:  -2.7
+    pan_max:  -0.5
+    # Lift: overview position is -1.7426 — cannot go more upright than that.
+    lift_min: -2.5
+    lift_max: -1.7
 
     # Fallback motion duration when joint-delta calculation is unavailable (seconds)
     move_duration_sec: 6

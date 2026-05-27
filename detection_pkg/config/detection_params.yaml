@@ -12,11 +12,18 @@ detection_node:
         range0:
           lower: [150,   0,   0]
           upper: [255, 100, 100]
+      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      # KNOWN BUG: these ranges are too wide — the table surface is falsely
+      # detected as both green and blue under current lab lighting.
+      # Tightening the non-dominant channel ceilings below 120 kills detection
+      # of the washed cubes.  This needs proper per-lighting calibration or a
+      # switch back to HSV before the next real run.
+      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       green:
         range0:
           lower: [  0,  80,   0]
-          upper: [100, 255, 100]
+          upper: [120, 255, 120]
       blue:
         range0:
-          lower: [  0,   0, 100]
-          upper: [100, 100, 255]
+          lower: [  0,   0,  90]
+          upper: [120, 120, 255]

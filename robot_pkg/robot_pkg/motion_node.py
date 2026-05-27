@@ -53,9 +53,11 @@ class MotionNode(Node):
         self.declare_parameter('base_frame',   'base_link')
         self.declare_parameter('end_effector', 'tool0')
         self.declare_parameter('move_duration_sec', 6)
-        # Shoulder-pan joint limits (radians) — IK solutions outside this window are rejected.
-        self.declare_parameter('pan_min', -2.7)
-        self.declare_parameter('pan_max', -0.5)
+        # Joint limits (radians) — IK solutions outside these windows are rejected.
+        self.declare_parameter('pan_min',  -2.7)
+        self.declare_parameter('pan_max',  -0.5)
+        self.declare_parameter('lift_min', -2.5)
+        self.declare_parameter('lift_max', -1.7)  # overview position — cannot go more upright
 
         self._home_joints     = list(self.get_parameter('home_joints').value)
         self._overview_joints = list(self.get_parameter('overview_joints').value)
@@ -72,6 +74,8 @@ class MotionNode(Node):
         self._move_duration  = self.get_parameter('move_duration_sec').value
         self._pan_min        = self.get_parameter('pan_min').value
         self._pan_max        = self.get_parameter('pan_max').value
+        self._lift_min       = self.get_parameter('lift_min').value
+        self._lift_max       = self.get_parameter('lift_max').value
 
         self._cube_pos: dict[str, PointStamped | None] = {
             'red': None, 'green': None, 'blue': None
@@ -220,11 +224,17 @@ class MotionNode(Node):
         joints = [joint_map.get(n, 0.0) for n in JOINT_NAMES]
         self.get_logger().info(f'IK → {[round(j, 3) for j in joints]}')
 
-        pan = joints[0]  # shoulder_pan_joint
+        pan  = joints[0]  # shoulder_pan_joint
+        lift = joints[1]  # shoulder_lift_joint
         if not (self._pan_min <= pan <= self._pan_max):
             self.get_logger().error(
                 f'IK pan={pan:.3f} rad outside allowed window '
                 f'[{self._pan_min}, {self._pan_max}] — rejecting')
+            return False
+        if not (self._lift_min <= lift <= self._lift_max):
+            self.get_logger().error(
+                f'IK lift={lift:.3f} rad outside allowed window '
+                f'[{self._lift_min}, {self._lift_max}] — rejecting')
             return False
 
         return self._execute_joints(joints)

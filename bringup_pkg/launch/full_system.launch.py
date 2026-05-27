@@ -46,8 +46,8 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'camera_z',
-            default_value='0.05',
-            description='Camera offset from tool0 along Z in metres — measure physically and tune',
+            default_value='0.085',
+            description='Camera offset from tool0 along Z in metres — lens is 8.5 cm from flange centre',
         ),
 
         # Camera TF: tool0 → camera_link
