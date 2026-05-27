@@ -9,13 +9,12 @@ import cv2
 import numpy as np
 
 
-# Each color entry: list of one or two [lower, upper] HSV bound pairs.
-# Red wraps around 180° in OpenCV HSV so it needs two ranges.
-DEFAULT_HSV = {
-    'red':   [([0,   120,  70], [10,  255, 255]),
-              ([170, 120,  70], [180, 255, 255])],
-    'green': [([35,  80,   50], [85,  255, 255])],
-    'blue':  [([100, 150,  50], [130, 255, 255])],
+# RGB ranges — each entry is a single [lower, upper] pair.
+# Values are [R, G, B], each 0-255.
+DEFAULT_RGB = {
+    'red':   [([150,   0,   0], [255, 100, 100])],
+    'green': [([  0,  80,   0], [100, 255, 100])],
+    'blue':  [([  0,   0, 100], [100, 100, 255])],
 }
 
 
@@ -23,18 +22,18 @@ class DetectionNode(Node):
     def __init__(self):
         super().__init__('detection_node')
 
-        # HSV parameters (declared per color/bound so they are tunable)
-        self._hsv = {}
-        for color, ranges in DEFAULT_HSV.items():
+        # RGB parameters (declared per color so they are tunable via yaml)
+        self._rgb = {}
+        for color, ranges in DEFAULT_RGB.items():
             bounds = []
             for i, (lo, hi) in enumerate(ranges):
-                self.declare_parameter(f'hsv.{color}.range{i}.lower', lo)
-                self.declare_parameter(f'hsv.{color}.range{i}.upper', hi)
-                lower = self.get_parameter(f'hsv.{color}.range{i}.lower').value
-                upper = self.get_parameter(f'hsv.{color}.range{i}.upper').value
+                self.declare_parameter(f'rgb.{color}.range{i}.lower', lo)
+                self.declare_parameter(f'rgb.{color}.range{i}.upper', hi)
+                lower = self.get_parameter(f'rgb.{color}.range{i}.lower').value
+                upper = self.get_parameter(f'rgb.{color}.range{i}.upper').value
                 bounds.append((np.array(lower, dtype=np.uint8),
                                 np.array(upper, dtype=np.uint8)))
-            self._hsv[color] = bounds
+            self._rgb[color] = bounds
 
         self.declare_parameter('min_contour_area', 500)
         self.declare_parameter('publish_debug_image', True)
@@ -53,10 +52,9 @@ class DetectionNode(Node):
             Image, 'camera/image_raw', self._image_callback, 1)
         self._pub_detections = self.create_publisher(String, 'vision/detections', 10)
 
-        # Per-color position publishers (pixel coords, z=0)
         self._pub_position = {
             color: self.create_publisher(PointStamped, f'vision/{color}_position', 10)
-            for color in DEFAULT_HSV
+            for color in DEFAULT_RGB
         }
 
         self._pub_debug = self.create_publisher(Image, 'vision/debug_image', 10)
@@ -80,8 +78,9 @@ class DetectionNode(Node):
         frame = self._bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         if self._K is not None and self._D is not None:
             frame = cv2.undistort(frame, self._K, self._D)
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        blurred = cv2.GaussianBlur(hsv, (9, 9), 0)
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        blurred = cv2.GaussianBlur(rgb, (9, 9), 0)
 
         # Morphological kernels (built once, reused per color)
         k_close  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
@@ -91,13 +90,11 @@ class DetectionNode(Node):
         detections = {}
         debug_frame = frame.copy()
 
-        for color, ranges in self._hsv.items():
-            mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
+        for color, ranges in self._rgb.items():
+            mask = np.zeros(rgb.shape[:2], dtype=np.uint8)
             for lower, upper in ranges:
                 mask |= cv2.inRange(blurred, lower, upper)
 
-            # Close first (fills holes in patchy colour regions), then open
-            # (removes small noise blobs), then dilate to grow the final blob.
             mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,  k_close,  iterations=2)
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,   k_open,   iterations=1)
             mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, k_dilate, iterations=1)
@@ -123,7 +120,6 @@ class DetectionNode(Node):
                     'area_px2':  int(best_area),
                 }
 
-                # Publish pixel position as PointStamped (x=col, y=row, z=0)
                 pt = PointStamped()
                 pt.header = msg.header
                 pt.point.x = float(cx)

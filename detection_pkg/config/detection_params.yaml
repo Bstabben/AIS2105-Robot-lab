@@ -1,27 +1,22 @@
-# HSV colour ranges for cube detection.
-# OpenCV HSV: H in [0,180], S in [0,255], V in [0,255]
-#
-# Red wraps around H=0/180 so two ranges are needed (range0 + range1).
-# Yellow and blue each need only one range.
+# RGB colour ranges for cube detection.
+# Values are [R, G, B], each 0-255.
+# Use any colour picker to sample the cube colour, then build a window around it.
 
 detection_node:
   ros__parameters:
     min_contour_area: 500        # px², smaller blobs are ignored
     publish_debug_image: true    # publish annotated image on vision/debug_image
 
-    hsv:
+    rgb:
       red:
         range0:
-          lower: [0,   120,  70]
-          upper: [10,  255, 255]
-        range1:
-          lower: [170, 120,  70]
-          upper: [180, 255, 255]
+          lower: [150,   0,   0]
+          upper: [255, 100, 100]
       green:
         range0:
-          lower: [35,  80,   50]
-          upper: [85,  255, 255]
+          lower: [  0,  80,   0]
+          upper: [100, 255, 100]
       blue:
         range0:
-          lower: [100, 150,  50]
-          upper: [130, 255, 255]
+          lower: [  0,   0, 100]
+          upper: [100, 100, 255]
